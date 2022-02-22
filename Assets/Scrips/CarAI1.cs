@@ -14,6 +14,9 @@ namespace UnityStandardAssets.Vehicles.Car
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
         public Graph graph;
+        Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
+        public Rigidbody rigidbody;
+
 
 
         public GameObject[] friends;
@@ -44,18 +47,6 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log("Block height is too low");
                 z_scale /= 2;
                 z_unit *= 2;
-            }
-
-            if (x_unit > carSize.x * 4)
-            {
-                x_scale *= 2;
-                x_unit /= 2;
-
-            }
-            if (z_unit > carSize.z * 4)
-            {
-                z_scale *= 4;
-                z_unit /= 4;
             }
 
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
