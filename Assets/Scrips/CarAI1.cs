@@ -13,6 +13,8 @@ namespace UnityStandardAssets.Vehicles.Car
 
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
+        public Graph graph;
+
 
         public GameObject[] friends;
         public GameObject[] enemies;
@@ -22,7 +24,41 @@ namespace UnityStandardAssets.Vehicles.Car
             // get the car controller
             m_Car = GetComponent<CarController>();
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
+            rigidbody = GetComponent<Rigidbody>();
+            int x_scale = terrain_manager.myInfo.x_N * 2;
+            int z_scale = terrain_manager.myInfo.z_N * 2;
+            float x_len = (terrain_manager.myInfo.x_high - terrain_manager.myInfo.x_low);
+            float z_len = (terrain_manager.myInfo.z_high - terrain_manager.myInfo.z_low);
+            float x_unit = x_len / x_scale;
+            float z_unit = z_len / z_scale;
+            float ratio = x_unit / z_unit;
 
+            if (x_unit < carSize.x * 2)
+            {
+                Debug.Log("Block width is too low");
+                x_scale /= 2;
+                x_unit *= 2;
+            }
+            if (z_unit < carSize.z)
+            {
+                Debug.Log("Block height is too low");
+                z_scale /= 2;
+                z_unit *= 2;
+            }
+
+            if (x_unit > carSize.x * 4)
+            {
+                x_scale *= 2;
+                x_unit /= 2;
+
+            }
+            if (z_unit > carSize.z * 4)
+            {
+                z_scale *= 4;
+                z_unit /= 4;
+            }
+
+            graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
 
             // note that both arrays will have holes when objects are destroyed
             // but for initial planning they should work
@@ -99,5 +135,26 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         }
+
+        void OnDrawGizmos() // draws grid on map and shows car
+                {
+                    if (graph != null)
+                    {
+                        foreach (Node n in graph.nodes) // graph.path 
+                        {
+                            Gizmos.color = (n.walkable) ? Color.blue : Color.red;
+                            if (graph.path != null && graph.path.Contains(n))
+                                Gizmos.color = Color.white;
+                            Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                        }
+
+
+                        Node currentNode = graph.getNodeFromPoint(transform.position);
+                        //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                        Gizmos.color = Color.cyan; // position of car
+                        Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                    }
+                }
+
     }
 }
