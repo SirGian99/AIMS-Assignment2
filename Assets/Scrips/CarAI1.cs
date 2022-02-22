@@ -16,6 +16,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public Graph graph;
         Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
         public Rigidbody rigidbody;
+        public float gunRange = 10f;
 
 
 
@@ -28,13 +29,25 @@ namespace UnityStandardAssets.Vehicles.Car
             m_Car = GetComponent<CarController>();
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
             rigidbody = GetComponent<Rigidbody>();
-            int x_scale = terrain_manager.myInfo.x_N * 2;
-            int z_scale = terrain_manager.myInfo.z_N * 2;
+            int x_scale = terrain_manager.myInfo.x_N;
+            int z_scale = terrain_manager.myInfo.z_N;
             float x_len = (terrain_manager.myInfo.x_high - terrain_manager.myInfo.x_low);
             float z_len = (terrain_manager.myInfo.z_high - terrain_manager.myInfo.z_low);
             float x_unit = x_len / x_scale;
+            x_unit = 1.4142f * gunRange;
+            float z_unit = x_unit;
+            Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
+            x_scale = x_scale * ((int)(x_len / x_unit) / x_scale);
+            z_scale = z_scale * ((int)(z_len / z_unit) / z_scale);
+            Debug.Log("x_unit: " + x_unit + " z_unit: " + z_unit);
+            Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
+            Debug.Log("x_len: " + x_len + " z_len: " + z_len);
+
+            /*
+
             float z_unit = z_len / z_scale;
             float ratio = x_unit / z_unit;
+
 
             if (x_unit < carSize.x * 2)
             {
@@ -48,6 +61,11 @@ namespace UnityStandardAssets.Vehicles.Car
                 z_scale /= 2;
                 z_unit *= 2;
             }
+            */
+
+            //i want x_unit and z_unit to be √2r, where r is the range of the gun.
+            //but i also want the new scales them to be a multiple of the original x_scale and z_scale
+
 
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
 
@@ -56,7 +74,7 @@ namespace UnityStandardAssets.Vehicles.Car
             friends = GameObject.FindGameObjectsWithTag("Player");
             // Note that you are not allowed to check the positions of the turrets in this problem
 
-           
+
 
 
             // Plan your path here
@@ -128,24 +146,24 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
         void OnDrawGizmos() // draws grid on map and shows car
+        {
+            if (graph != null)
+            {
+                foreach (Node n in graph.nodes) // graph.path 
                 {
-                    if (graph != null)
-                    {
-                        foreach (Node n in graph.nodes) // graph.path 
-                        {
-                            Gizmos.color = (n.walkable) ? Color.blue : Color.red;
-                            if (graph.path != null && graph.path.Contains(n))
-                                Gizmos.color = Color.white;
-                            Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                        }
-
-
-                        Node currentNode = graph.getNodeFromPoint(transform.position);
-                        //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
-                        Gizmos.color = Color.cyan; // position of car
-                        Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                    }
+                    Gizmos.color = (n.walkable) ? Color.blue : Color.red;
+                    if (graph.path != null && graph.path.Contains(n))
+                        Gizmos.color = Color.white;
+                    Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
                 }
+
+
+                Node currentNode = graph.getNodeFromPoint(transform.position);
+                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.color = Color.cyan; // position of car
+                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+            }
+        }
 
     }
 }
