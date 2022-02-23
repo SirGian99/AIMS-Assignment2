@@ -16,7 +16,7 @@ public class DARP_controller
 
     public DARP_controller(int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance)
     {
-        this.n_agents = n_agents+2;
+        this.n_agents = n_agents;
         this.initial_positions = initial_positions;
         this.graph = graph;
         evaluation_matrix = new float[n_agents, graph.i_size, graph.j_size];
@@ -213,6 +213,7 @@ public class DARP_controller
                                 highest = k;
                         }
                         assignment_matrix[i, j] = highest + 1;
+                        current.assigned_veichle = assignment_matrix[i, j];
                     }
 
                 }

@@ -12,6 +12,7 @@ public class Node
     public Vector3 worldPosition;
     public float heading;
     public int area_id = -1;
+    public int assigned_veichle = -1;
 
     public float gCost;
     public float hCost;

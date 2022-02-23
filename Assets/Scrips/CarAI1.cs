@@ -181,11 +181,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 foreach (Node n in graph.nodes) // graph.path 
                 {
                     Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green};
-                    //Debug.Log("Null exception: [" + n.i + "," + n.j + "]");
                     int index = darp.assignment_matrix[n.i, n.j];
-                    
-                    if (index == -1)
-                        index = 0;
 
                     Gizmos.color = colors[index];
                     if (graph.path != null && graph.path.Contains(n))
