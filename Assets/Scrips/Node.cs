@@ -11,7 +11,7 @@ public class Node
     public bool walkable;
     public Vector3 worldPosition;
     public float heading;
-
+    public int area_id = -1;
 
     public float gCost;
     public float hCost;
