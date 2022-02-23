@@ -30,7 +30,8 @@ public class Graph{
     //STC variables
     public int VerticesCount;
     public int EdgesCount;
-    public Edge[] EdgeArray;
+    public List<Edge> EdgeList;
+    public Node[] VertexArray;
 
 
     public Graph(int i_size, int j_size, float x_low, float x_high, float z_low, float z_high)
@@ -177,9 +178,10 @@ public class Graph{
         //// STC Code addition
         //
         //Create Edges and return edge list
-        VerticesCount = graph.nodes.GetLength(0) * graph.nodes.GetLength(1);
+        graph.VerticesCount = graph.nodes.GetLength(0) * graph.nodes.GetLength(1);
+        List<Node> VertexList = new List<Node>();
         Edge newEdge = new Edge();
-        List<Edge> EdgeList = new List<Edge>();
+        graph.EdgeList = new List<Edge>();
         foreach (Node node in graph.nodes)
         {
 
@@ -190,15 +192,21 @@ public class Graph{
                     newEdge.Source = node;
                     newEdge.Destination = neighbour;
                     newEdge.Weight = 1;
-                    EdgeList.Add(newEdge);
+                    graph.EdgeList.Add(newEdge);
                 }
+            }
+            if (node.walkable == true)
+            {
+                VertexList.Add(node);
             }
             
         }
-        EdgesCount = EdgeList.Count;
-        for(int i = 0; i< EdgeList.Count; i++)
+        graph.EdgesCount = graph.EdgeList.Count;
+        graph.VerticesCount = VertexList.Count;
+        graph.VertexArray = new Node[graph.VerticesCount];
+        for (int v = 0; v < VertexList.Count; v++)
         {
-            EdgeArray[i] = EdgeList[i];
+            graph.VertexArray[v] = VertexList[v];
         }
 
         return graph;

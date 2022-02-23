@@ -32,6 +32,9 @@ namespace UnityStandardAssets.Vehicles.Car
         private int path_index;
         private List<Vector3> my_path;
 
+        //Temp
+        private Edge[] min_tree;
+
 
         private void Start()
         {
@@ -49,7 +52,6 @@ namespace UnityStandardAssets.Vehicles.Car
             m_Car = GetComponent<CarController>();
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
             start_pos = terrain_manager.myInfo.start_pos;
-            goal_pos = terrain_manager.myInfo.goal_pos;
             rigidbody = GetComponent<Rigidbody>();
 
             // Construct Terrain Graph
@@ -60,12 +62,12 @@ namespace UnityStandardAssets.Vehicles.Car
             float x_unit = x_len / x_scale;
             x_unit = 1.4142f * gunRange;
             float z_unit = x_unit;
-            Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
+            //Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
             x_scale = x_scale * ((int)(x_len / x_unit) / x_scale);
             z_scale = z_scale * ((int)(z_len / z_unit) / z_scale);
-            Debug.Log("x_unit: " + x_unit + " z_unit: " + z_unit);
-            Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
-            Debug.Log("x_len: " + x_len + " z_len: " + z_len);
+            //Debug.Log("x_unit: " + x_unit + " z_unit: " + z_unit);
+            //Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
+            //Debug.Log("x_len: " + x_len + " z_len: " + z_len);
 
             /*
 
@@ -93,12 +95,13 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             // Get Array of Friends and Eniemies
-            friends = GameObject.FindGameObjectsWithTag("Player");
+            //friends = GameObject.FindGameObjectsWithTag("Player");
 
 
             // Plan your path here
-            // ...
-
+            my_path = new List<Vector3>();
+            my_path = createDARP(graph, start_pos);
+            min_tree = STC(graph);
 
         }
 
@@ -135,6 +138,118 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
 
+        }
+
+
+        // MAIN FUNC: Divide and conquer
+        public List<Vector3> createDARP(Graph graph, Vector3 start_pos)
+        {
+            Edge[] MinSTC = STC(graph);
+            List<Vector3> path = new List<Vector3>();
+            path = ComputePath(MinSTC, start_pos);
+
+            return path;
+        }
+
+        // Sub-Func: Compute path 
+        private List<Vector3> ComputePath(Edge[] EdgeArray, Vector3 start_pos)
+        {
+            List<Vector3> path = new List<Vector3>();
+            Vector3 waypoint;
+            path.Add(start_pos);
+            for (int i = 0; i < EdgeArray.Length-1; i++)
+            {
+                waypoint = EdgeArray[i].Destination.worldPosition;
+                //Debug.Log(i+ "waypoint " + waypoint + EdgeArray.Length);
+                path.Add(waypoint);
+            }
+            return path;
+        }
+
+
+
+
+        // MAIN FUNC: Separate terrain into different areas
+
+
+
+
+        // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
+        public Edge[] STC(Graph graph)
+        {
+            int verticesCount = graph.VerticesCount;
+            Edge[] result = new Edge[verticesCount];
+            Node[] VertexArray = graph.VertexArray;
+            int k = 0;
+            int e = 0;
+
+            // Sort edges by cost- all costs are same
+            //graph.EdgeList = graph.EdgeList.Sort(p => p.Weight);
+
+            // Create each vertex as subsets
+            Subset[] subsets = new Subset[verticesCount];
+            Subset sub;
+            for (int v = 0; v < verticesCount; ++v)
+            {
+                sub = new Subset();
+                sub.Parent = VertexArray[v];
+                sub.Rank = 0;
+                subsets[v] = sub;
+            }
+
+            // build min tree
+            while (e < verticesCount - 1)
+            {
+                Edge nextEdge = graph.EdgeList[k];
+                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
+                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
+
+                if (x != y)
+                {
+                    result[e++] = nextEdge;
+                    //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
+                    Union(subsets, x, y, VertexArray);
+                }
+                k++;
+            }
+
+            return result;
+        }
+
+        // Sub-Func: Identify parent of node a in Subset for kurskal's
+        private Node Find(Subset[] subsets, Node vertex, int k, Node[] vertex_dict)
+        {
+            if (subsets[k].Parent != vertex)
+            {
+                subsets[k].Parent = Find(subsets, subsets[k].Parent,
+                                    System.Array.IndexOf(vertex_dict, subsets[k].Parent), vertex_dict);
+            }
+
+            return subsets[k].Parent;
+        }
+
+        // Sub-Func: Union of subsets for kurskal's
+        private void Union(Subset[] subsets, Node x, Node y, Node[] vertex_dict)
+        {
+            Node xroot = Find(subsets, x, System.Array.IndexOf(vertex_dict, x), vertex_dict);
+            Node yroot = Find(subsets, y, System.Array.IndexOf(vertex_dict, y), vertex_dict);
+
+            if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank < subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
+                subsets[System.Array.IndexOf(vertex_dict, xroot)].Parent = yroot;
+            else if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank > subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
+                subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
+            else
+            {
+                subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
+                ++subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank;
+            }
+        }
+
+        // Data Stuture: Subset for kurskal's
+        public struct Subset
+        {
+            public Node Parent { get; set; }
+            public int Rank { get; set; }
         }
 
 
@@ -180,6 +295,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 //    acceleration = acceleration * 0.2f;
                 //}
             }
+            // addtional checks
             if (player_pathIndex < player_path.Count - 1)
             {
                 int check = Mathf.Min(3 + (int)(player_Car.CurrentSpeed * 1.6f * 1.6f * player_Car.CurrentSpeed / 500), player_path.Count - 1 - player_pathIndex);
@@ -236,14 +352,17 @@ namespace UnityStandardAssets.Vehicles.Car
             return Mathf.Clamp(direction.x * directionToTarget.x + direction.z * directionToTarget.z, -1, 1);
         }
 
+
+
         //MAIN FUNC: Visualise
         void OnDrawGizmos() // draws grid on map and shows car
         {
+            // Show graph grids
             if (graph != null)
             {
                 foreach (Node n in graph.nodes) // graph.path 
                 {
-                    Gizmos.color = (n.walkable) ? Color.blue : Color.red;
+                    Gizmos.color = (n.walkable) ? Color.green : Color.red;
                     if (graph.path != null && graph.path.Contains(n))
                         Gizmos.color = Color.white;
                     Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
@@ -255,7 +374,31 @@ namespace UnityStandardAssets.Vehicles.Car
                 Gizmos.color = Color.cyan; // position of car
                 Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
             }
+
+            //Show min span tree
+            if(min_tree != null)
+            {
+                Gizmos.color = Color.red;
+                for (int i = 0; i < min_tree.Length - 1; ++i)
+                {
+                    Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                }
+            }
+
+
+            //Show the path to the goal
+            //if (my_path != null)
+            //{
+            //    Gizmos.color = Color.white;
+            //    for (int i = 0; i < my_path.Count - 1; ++i)
+            //    {
+            //        Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
+            //    }
+            //}
         }
+
+
+
 
     }
 }
