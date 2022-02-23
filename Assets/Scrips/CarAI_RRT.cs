@@ -51,7 +51,6 @@ namespace UnityStandardAssets.Vehicles.Car
         private bool MazeComplete;
         private float time;
         private int path_index;
-        private CarTreeNode waypoint;
 
 
         private void Start()
@@ -84,7 +83,6 @@ namespace UnityStandardAssets.Vehicles.Car
             // note that both arrays will have holes when objects are destroyed
             // but for initial planning they should work
             friends = GameObject.FindGameObjectsWithTag("Player");
-            alive_players = friends.Count + 1;
             // Note that you are not allowed to check the positions of the turrets in this problem
 
 
@@ -103,7 +101,6 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log("No path found!");
             }
 
-            waypoint = my_path[path_index];
 
 
             // choose path based on starting pos
@@ -114,24 +111,14 @@ namespace UnityStandardAssets.Vehicles.Car
         private void FixedUpdate()
         {
             enemies = GameObject.FindGameObjectsWithTag("Enemy");
-            time += Time.deltaTime;
-
-            while (alive_players)
-            {
-                foreach (CarController player_Car in friends)
-                {
-                    if(player_Car !=)
-                }
-            }
 
             // Drive Car
             if (!MazeComplete)
             {
                 time += Time.deltaTime;
+                //path_index = ExecutePath(my_path, m_Car, path_index);
 
-                public int ExecutePath(List<Vector3> player_path, CarController player_Car, int player_pathIndex);
-
-                if (Vector3.Distance(m_Car.transform.position, goal_pos) <= StopWithinGoal)
+                if (m_Car.transform.position == goal_pos)
                 {
                     MazeComplete = true;
                 }
@@ -139,14 +126,8 @@ namespace UnityStandardAssets.Vehicles.Car
             else
             {
                 m_Car.Move(0f, 0f, 0f, 1);
-                Debug.Log("Goal reached - exiting play mode " + time);
-                UnityEditor.EditorApplication.isPlaying = false;
-            }
+                Debug.Log("Path completed for Player " + time);
 
-            if (m_Car.transform.position == goal_pos)
-            {
-                Debug.Log("Goal reached - exiting play mode" + time);
-                UnityEditor.EditorApplication.isPlaying = false;
             }
         }
 
@@ -653,87 +634,7 @@ namespace UnityStandardAssets.Vehicles.Car
             return FinalPath;
         }
 
-        // MAIN FUNC: Car Drive
 
-        public int ExecutePath(List<Vector3> player_path, CarController player_Car, int player_pathIndex )
-        {
-            vector3 player_waypoint = player_path[player_pathIndex];
-            int brake = 0;
-            int handBrake = 0;
-            float car_steer, car_acc;
-            bool MazeComplete = false;
-
-            //find steering needed to get to next point
-            car_steer = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
-
-            // if turn is too small, don't steer
-            if (Mathf.Abs(car_steer) < 0.2f)
-            {
-                car_steer = 0;
-            }
-
-            // if turn is too big, brake to turn easily & don't accelerate
-            if (Mathf.Abs(car_steer) > 0.8f && player_Car.CurrentSpeed > max_speed / 10)
-            {
-                car_acc = 0;
-                if (player_Car.CurrentSpeed > max_speed / 5)
-                {
-                    handBrake = 1;
-                }
-                else
-                {
-                    handBrake = 0;
-                }
-            }
-            // apply acceleration to get to next point
-            else
-            {
-                car_acc = Accelerate(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
-                handBrake = 0;
-                // slow down towards end
-                //if (path_index > (player_path.Count - 10))
-                //{
-                //    acceleration = acceleration * 0.2f;
-                //}
-            }
-            if (player_pathIndex < player_path.Count - 1)
-            {
-                int check = Mathf.Min(3 + (int)(player_Car.CurrentSpeed * 1.6f * 1.6f * player_Car.CurrentSpeed / 500), player_path.Count - 1 - player_pathIndex);
-                for (int i = 1; i <= check; ++i)
-                {
-                    float steer_check = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_path[player_pathIndex + i]);
-                    if (Mathf.Abs(steer_check) > 0.8f && (player_Car.CurrentSpeed * 1.6f * 1.6f * player_Car.CurrentSpeed)
-                        >= Vector3.Distance(player_Car.transform.position, player_path[player_pathIndex + i]) * 250 * 0.8f)
-                    {
-                        car_acc = 0;
-                        brake = 1;
-                        break;
-                    }
-                }
-            }
-            // if current speed is max, then don't accelerate
-            if (player_Car.CurrentSpeed >= max_speed)
-            {
-                car_acc = 0;
-            }
-
-            // if acceleration is reverse, apply backwards turns
-            if (car_acc < 0)
-            {
-                player_Car.Move(-car_steer, brake, car_acc * acceleration, handBrake);
-            }
-            else
-            {
-                player_Car.Move(car_steer, car_acc * acceleration, -brake, handBrake);
-            }
-
-            if (Vector3.Distance(player_Car.transform.position, player_waypoint) <= 5 + player_Car.CurrentSpeed / 40)
-            {
-                player_pathIndex = Mathf.Min(player_pathIndex + 1, player_path.Count - 1);        
-            }
-
-            return player_pathIndex
-        }
 
         // MAIN FUNC: Visualize paths
         private void OnDrawGizmos()
