@@ -1,12 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using System;
-
+using UnityEngine;
+using System.IO;
 
 namespace UnityStandardAssets.Vehicles.Car
 {
-    [RequireComponent(typeof(CarController))]
+        [RequireComponent(typeof(CarController))]
     public class CarAI1 : MonoBehaviour
     {
         // Variables for Car
@@ -31,6 +31,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private Vector3 start_pos, goal_pos;
         private int path_index;
         private List<Vector3> my_path;
+        public DARP_controller darp;
 
         //Temp
         private Edge[] min_tree;
@@ -92,16 +93,25 @@ namespace UnityStandardAssets.Vehicles.Car
             //i want x_unit and z_unit to be √2r, where r is the range of the gun.
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
-
+            Debug.Log("Walkable nodes: " + graph.walkable_nodes);
+            Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
 
             // Get Array of Friends and Eniemies
-            //friends = GameObject.FindGameObjectsWithTag("Player");
-
+            friends = GameObject.FindGameObjectsWithTag("Player");
+            Vector3[] initial_positions = new Vector3[friends.Length];
+            int i = 0;
+            foreach(GameObject friend in friends)
+            {
+                Debug.Log(friend + " position: " + friend.gameObject.transform.position);
+                initial_positions[i] = friend.gameObject.transform.position;
+                i++;
+            }
 
             // Plan your path here
             my_path = new List<Vector3>();
             my_path = createDARP(graph, start_pos);
             min_tree = STC(graph);
+            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
 
         }
 
@@ -360,19 +370,23 @@ namespace UnityStandardAssets.Vehicles.Car
             // Show graph grids
             if (graph != null)
             {
-                foreach (Node n in graph.nodes) // graph.path 
-                {
-                    Gizmos.color = (n.walkable) ? Color.green : Color.red;
-                    if (graph.path != null && graph.path.Contains(n))
-                        Gizmos.color = Color.white;
-                    Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                }
-
-
                 Node currentNode = graph.getNodeFromPoint(transform.position);
                 //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
                 Gizmos.color = Color.cyan; // position of car
+                //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
                 Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                foreach (Node n in graph.nodes) // graph.path 
+                {
+                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green};
+                    int index = darp.assignment_matrix[n.i, n.j];
+
+                    Gizmos.color = colors[index];
+                    if (graph.path != null && graph.path.Contains(n))
+                        Gizmos.color = Color.white;
+
+                    Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+
+                }
             }
 
             //Show min span tree
@@ -395,10 +409,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //        Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
             //    }
             //}
+
         }
-
-
-
-
     }
 }

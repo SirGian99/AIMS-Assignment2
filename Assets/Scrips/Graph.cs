@@ -22,9 +22,12 @@ public class Graph{
     public Node start_node;
     public Node goal_node;
     public List<Node> path;
+    public int walkable_nodes = 0;
+    public int non_walkable_nodes = 0;
+    public Vector3 centre;
 
     public int[,] graphTraversabilityMatrix;
-
+        
     public Node[,] nodes;
 
     //STC variables
@@ -46,6 +49,7 @@ public class Graph{
         this.z_unit = (z_high - z_low) / j_size;
         this.nodes = new Node[i_size, j_size];
         this.graphTraversabilityMatrix = new int[i_size, j_size];
+        centre = new Vector3((x_high - x_low) / 2 + x_low, 0, (z_high - z_low) / 2 + z_low);
     }
 
 
@@ -110,8 +114,10 @@ public class Graph{
                     }
                 }
                 walkable = true; //TODO understand why if I implement this (hence, if i remove this line) no path is found on terrain B
+
                 if (terrainInfo.traversability[i_index, j_index] == 0 && walkable)
                 {
+                    graph.walkable_nodes += 1;
                     //Gizmos.color = Color.blue;
                     graph.graphTraversabilityMatrix[i, j] = 0; //0 means that the node is traversable
                     if (i == x_N || j == z_N)
@@ -164,6 +170,7 @@ public class Graph{
                 else
                 {
                     node.walkable = false;
+                    graph.non_walkable_nodes += 1;
                     graph.graphTraversabilityMatrix[i, j] = 1; //1 means that the node is not traversable
                 }
 
