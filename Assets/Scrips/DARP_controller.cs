@@ -160,7 +160,7 @@ public class DARP_controller
                     if (direction.x <= 0 && direction.z<=0)
                         angle += Mathf.PI;
                     */
-                    Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
+                    //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
                     assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
                 }
 

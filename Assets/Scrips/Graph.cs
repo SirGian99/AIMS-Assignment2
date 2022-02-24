@@ -303,42 +303,6 @@ public class Graph{
             }
         }
 
-        //// STC Code addition
-        //
-        //Create Edges and return edge list
-        graph.VerticesCount = graph.nodes.GetLength(0) * graph.nodes.GetLength(1);
-        List<Node> VertexList = new List<Node>();
-        Edge newEdge = new Edge();
-        graph.EdgeList = new List<Edge>();
-        foreach (Node node in graph.nodes)
-        {
-            if (node != null)
-            {
-                foreach (Node neighbour in node.neighbours)
-                {
-                    if (node.walkable == true && neighbour.walkable == true)
-                    {
-                        newEdge.Source = node;
-                        newEdge.Destination = neighbour;
-                        newEdge.Weight = 1;
-                        graph.EdgeList.Add(newEdge);
-                    }
-                }
-                if (node.walkable == true)
-                {
-                    VertexList.Add(node);
-                }
-            }
-
-        }
-        graph.EdgesCount = graph.EdgeList.Count;
-        graph.VerticesCount = VertexList.Count;
-        graph.VertexArray = new Node[graph.VerticesCount];
-        for (int v = 0; v < VertexList.Count; v++)
-        {
-            graph.VertexArray[v] = VertexList[v];
-        }
-
         return graph;
     }
 

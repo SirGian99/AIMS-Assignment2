@@ -20,7 +20,6 @@ namespace UnityStandardAssets.Vehicles.Car
         TerrainManager terrain_manager;
         public Graph graph;
         public GraphSTC map;
-        public List<GraphSTC> drone_maps;
         public Graph yellow_subgraph;
         public DARP_controller darp;
 
@@ -99,33 +98,35 @@ namespace UnityStandardAssets.Vehicles.Car
             //i want x_unit and z_unit to be √2r, where r is the range of the gun.
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
-            Debug.Log("Walkable nodes: " + graph.walkable_nodes);
-            Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
-            map = new GraphSTC(graph, start_pos);
+            //Debug.Log("Walkable nodes: " + graph.walkable_nodes);
+            //Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
+            
 
             // Get Array of Friends and Eniemies
             friends = GameObject.FindGameObjectsWithTag("Player");
-            Vector3[] initial_positions = new Vector3[friends.Length];
+             Vector3[] initial_positions = new Vector3[friends.Length];
             int i = 0;
             foreach(GameObject friend in friends)
             {
-                Debug.Log(friend + " position: " + friend.gameObject.transform.position);
-                initial_positions[i] = friend.gameObject.transform.position;
-                i++;
-                if(friend.gameObject.transform.position == m_Car.transform.position)
+                if (friend.name == this.name)
                 {
                     CarNumber = i;
                 }
+                Debug.Log(friend + " position: " + friend.gameObject.transform.position);
+                initial_positions[i] = friend.gameObject.transform.position;
+                i++;
+
             }
 
+
+
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
-
-            yellow_subgraph = Graph.CreateSubGraph(graph, 2, terrain_manager.myInfo, x_scale, z_scale);
-
+            yellow_subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
+            map = new GraphSTC(yellow_subgraph, start_pos);
 
             // Plan your path here
             my_path = new List<Vector3>();
-            my_path = CreateDroneMap(map, darp, CarNumber);
+            my_path = CreateDronePath(map);
             min_tree = STC(map);
 
 
@@ -168,11 +169,11 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Divide and conquer
-        public List<Vector3> CreateDroneMap(GraphSTC graph, DARP_controller darp, int CarNumber)
+        public List<Vector3> CreateDronePath(GraphSTC graph)
         {
             Edge[] MinSTC = STC(graph);
             List<Vector3> path = new List<Vector3>();
-            path = ComputePath(MinSTC, darp.initial_positions[CarNumber]);
+            path = ComputePath(MinSTC, graph.start_pos);
 
             return path;
         }
@@ -210,7 +211,7 @@ namespace UnityStandardAssets.Vehicles.Car
             int e = 0;
 
             // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
+            //graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
 
             // Create each vertex as subsets
             Subset[] subsets = new Subset[verticesCount];
@@ -383,61 +384,37 @@ namespace UnityStandardAssets.Vehicles.Car
         //MAIN FUNC: Visualise
         void OnDrawGizmos() // draws grid on map and shows car
         {
-            // Show graph grids
-            if (graph != null)
+            // Show graph grids for main car only
+            if (CarNumber == 0)
             {
-                Node currentNode = graph.getNodeFromPoint(transform.position);
-                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
-                Gizmos.color = Color.cyan; // position of car
-                //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
-                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                foreach (Node n in graph.nodes) // graph.path 
+                if (graph != null)
                 {
-                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green};
-                    int index = darp.assignment_matrix[n.i, n.j];
+                    Node currentNode = graph.getNodeFromPoint(transform.position);
+                    //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                    Gizmos.color = Color.cyan; // position of car
+                    //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
+                    Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                    foreach (Node n in graph.nodes) // graph.path 
+                    {
+                        Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
+                        int index = darp.assignment_matrix[n.i, n.j];
 
-                    Gizmos.color = colors[index];
-                    if (graph.path != null && graph.path.Contains(n))
-                        Gizmos.color = Color.white;
+                        Gizmos.color = colors[index];
+                        if (graph.path != null && graph.path.Contains(n))
+                            Gizmos.color = Color.white;
 
-                    Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                        Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
 
+                    }
                 }
-            }
-
-
-            if (yellow_subgraph != null)
-            {
-
-                Node currentNode = graph.getNodeFromPoint(transform.position);
-                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
-                Gizmos.color = Color.cyan; // position of car
-                //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
-                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                foreach (Node n in graph.nodes) // graph.path 
-                {
-                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
-                    int index = darp.assignment_matrix[n.i, n.j];
-
-                    Gizmos.color = colors[index];
-                    if (graph.path != null && graph.path.Contains(n))
-                        Gizmos.color = Color.white;
-
-                    Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-
-                }
-
-
-                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
-                Gizmos.color = Color.cyan; // position of car
-                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
             }
 
 
             //Show min span tree
             if(min_tree != null)
             {
-                Gizmos.color = Color.red;
+                Color[] colors = {Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
+                Gizmos.color = colors[CarNumber];
                 for (int i = 0; i < min_tree.Length - 1; ++i)
                 {
                     Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
@@ -451,7 +428,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Gizmos.color = Color.white;
                 for (int i = 0; i < my_path.Count - 1; ++i)
                 {
-                    Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
+                   // Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
                 }
             }
 
