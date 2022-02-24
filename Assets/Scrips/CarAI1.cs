@@ -1,12 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using System;
-
+using UnityEngine;
+using System.IO;
 
 namespace UnityStandardAssets.Vehicles.Car
 {
-    [RequireComponent(typeof(CarController))]
+        [RequireComponent(typeof(CarController))]
     public class CarAI1 : MonoBehaviour
     {
         // Variables for Car
@@ -14,10 +14,16 @@ namespace UnityStandardAssets.Vehicles.Car
         Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
         private Rigidbody rigidbody;
 
-        // Variables for Terrain
+
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
         public Graph graph;
+        Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
+        public Rigidbody rigidbody;
+        public float gunRange = 10f;
+        public DARP_controller darp;
+
+
 
         // Variables for Players and Turrets
         public GameObject[] friends;
@@ -93,6 +99,23 @@ namespace UnityStandardAssets.Vehicles.Car
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
 
+            /*Debug.Log("Walkable nodes: " + graph.walkable_nodes);
+            Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
+            */
+            // note that both arrays will have holes when objects are destroyed
+            // but for initial planning they should work
+            friends = GameObject.FindGameObjectsWithTag("Player");
+            Vector3[] initial_positions = new Vector3[friends.Length];
+            int i = 0;
+            foreach(GameObject friend in friends)
+            {
+                Debug.Log(friend + " position: " + friend.gameObject.transform.position);
+                initial_positions[i] = friend.gameObject.transform.position;
+                i++;
+            }
+
+            // Note that you are not allowed to check the positions of the turrets in this problem
+
 
             // Get Array of Friends and Eniemies
             //friends = GameObject.FindGameObjectsWithTag("Player");
@@ -103,6 +126,20 @@ namespace UnityStandardAssets.Vehicles.Car
             my_path = createDARP(graph, start_pos);
             min_tree = STC(graph);
 
+            // ...
+
+            /*Process otherProcess = new Process();
+            Debug.Log("App path: " + Application.dataPath);
+            otherProcess.StartInfo.FileName = Application.dataPath + "/prova.py";
+            otherProcess.StartInfo.RedirectStandardInput = true;
+            otherProcess.StartInfo.RedirectStandardOutput = true;
+            otherProcess.Start();
+            StreamReader reader = otherProcess.StandardOutput;
+            string output = reader.ReadToEnd();
+            Debug.Log(output);
+            otherProcess.WaitForExit();
+            */
+            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
         }
 
 
@@ -360,12 +397,22 @@ namespace UnityStandardAssets.Vehicles.Car
             // Show graph grids
             if (graph != null)
             {
+                Node currentNode = graph.getNodeFromPoint(transform.position);
+                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.color = Color.cyan; // position of car
+                //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
                 foreach (Node n in graph.nodes) // graph.path 
                 {
-                    Gizmos.color = (n.walkable) ? Color.green : Color.red;
+                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green};
+                    int index = darp.assignment_matrix[n.i, n.j];
+
+                    Gizmos.color = colors[index];
                     if (graph.path != null && graph.path.Contains(n))
                         Gizmos.color = Color.white;
+
                     Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+
                 }
 
 
