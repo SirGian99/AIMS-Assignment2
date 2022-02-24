@@ -18,7 +18,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
         public Graph graph;
-        public Graph yellow_subgraph;
+        public Graph[] subgraph;
         public DARP_controller darp;
 
 
@@ -34,10 +34,10 @@ namespace UnityStandardAssets.Vehicles.Car
         private float time;
         private Vector3 start_pos, goal_pos;
         private int path_index;
-        private List<Vector3> my_path;
+        private List<Vector3>[] my_path;
 
         //Temp
-        private Edge[] min_tree;
+        private Edge[][] min_tree;
 
 
         private void Start()
@@ -120,13 +120,20 @@ namespace UnityStandardAssets.Vehicles.Car
 
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
 
-            yellow_subgraph = Graph.CreateSubGraph(graph, 2, terrain_manager.myInfo, x_scale, z_scale);
+            subgraph = new Graph[friends.Length + 1]; //the 0 position will be empty. I know this is not the best, but it allows for the gizmos obstacles representation
+            my_path = new List<Vector3>[subgraph.Length];
+            min_tree = new Edge[subgraph.Length][];
+            for(int k = 2; k < subgraph.Length; k++)
+            {
+                subgraph[k] = Graph.CreateSubGraph(graph, k, terrain_manager.myInfo, x_scale, z_scale);
+                // Plan your path here
+                my_path[k] = new List<Vector3>();
+                my_path[k] = createDARP(subgraph[k], start_pos);
+                min_tree[k] = STC(subgraph[k]);
+            }
 
 
-            // Plan your path here
-            my_path = new List<Vector3>();
-            my_path = createDARP(yellow_subgraph, start_pos);
-            min_tree = STC(yellow_subgraph);
+
 
             // ...
 
@@ -161,7 +168,7 @@ namespace UnityStandardAssets.Vehicles.Car
             if (!MazeComplete)
             {
                 time += Time.deltaTime;
-                path_index = DriveCar(my_path, m_Car, path_index);
+                path_index = DriveCar(my_path[2], m_Car, path_index); //TODO CHANGE THE FIXED INDEX!!!!
 
                 if (m_Car.transform.position == goal_pos)
                 {
@@ -395,6 +402,7 @@ namespace UnityStandardAssets.Vehicles.Car
         //MAIN FUNC: Visualise
         void OnDrawGizmos() // draws grid on map and shows car
         {
+            int index_to_draw = 2; //TODO CHANGE THIS FIXED INDEX 
             // Show graph grids
             if (graph != null)
             {
@@ -423,7 +431,7 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
 
-            if (yellow_subgraph != null)
+            if (subgraph[index_to_draw] != null) 
             {
 
                 Node currentNode = graph.getNodeFromPoint(transform.position);
@@ -457,7 +465,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Gizmos.color = Color.red;
                 for (int i = 0; i < min_tree.Length - 1; ++i)
                 {
-                    Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                    Gizmos.DrawLine(min_tree[index_to_draw][i].Source.worldPosition + Vector3.up, min_tree[index_to_draw][i].Destination.worldPosition + Vector3.up); 
                 }
             }
 
