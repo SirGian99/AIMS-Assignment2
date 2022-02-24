@@ -29,21 +29,24 @@ public class GraphSTC
         Edge newEdge = new Edge();
         foreach (Node node in graph.nodes)
         {
-            foreach (Node neighbour in node.neighbours)
+            if (node != null)
             {
-                if (node.walkable == true && neighbour.walkable == true)
+                foreach (Node neighbour in node.neighbours)
                 {
-                    newEdge.Source = node;
-                    newEdge.Destination = neighbour;
-                    newEdge.Weight = Vector3.Distance(neighbour.worldPosition, start_pos);
-                    this.EdgeList.Add(newEdge);
+                    if (node.walkable == true && neighbour.walkable == true)
+                    {
+                        newEdge.Source = node;
+                        newEdge.Destination = neighbour;
+                        newEdge.Weight = Vector3.Distance(neighbour.worldPosition, start_pos);
+                        this.EdgeList.Add(newEdge);
+                    }
                 }
-            }
-            if (node.walkable == true)
-            {
-                VertexList.Add(node);
-            }
+                if (node.walkable == true)
+                {
+                    VertexList.Add(node);
+                }
 
+            }
         }
         this.EdgesCount = this.EdgeList.Count;
         this.VerticesCount = VertexList.Count;
