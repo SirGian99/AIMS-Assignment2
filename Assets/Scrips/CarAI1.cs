@@ -116,10 +116,10 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
             // Plan your path here
-            my_path = new List<Vector3>();
-            my_path = createDARP(map, start_pos);
-            min_tree = STC(map);
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
+            my_path = new List<Vector3>();
+            my_path = CreateDroneMap(map, darp, CarNumber);
+            min_tree = STC(map);
 
         }
 
@@ -160,11 +160,11 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Divide and conquer
-        public List<Vector3> createDARP(GraphSTC graph, Vector3 start_pos)
+        public List<Vector3> CreateDroneMap(GraphSTC graph, DARP_controller darp, int CarNumber)
         {
             Edge[] MinSTC = STC(graph);
             List<Vector3> path = new List<Vector3>();
-            path = ComputePath(MinSTC, start_pos);
+            path = ComputePath(MinSTC, darp.initial_positions[CarNumber]);
 
             return path;
         }
@@ -408,15 +408,15 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
 
-            ////Show the path to the goal
-            //if (my_path != null)
-            //{
-            //    Gizmos.color = Color.white;
-            //    for (int i = 0; i < my_path.Count - 1; ++i)
-            //    {
-            //        Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
-            //}
-            //}
+            //Show the path to the goal
+            if (my_path != null)
+            {
+                Gizmos.color = Color.white;
+                for (int i = 0; i < my_path.Count - 1; ++i)
+                {
+                    Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
+                }
+            }
 
         }
     }
