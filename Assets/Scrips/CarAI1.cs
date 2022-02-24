@@ -110,7 +110,7 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 if (friend.name == this.name)
                 {
-                    CarNumber = i;
+                    CarNumber = i+1;
                 }
                 Debug.Log(friend + " position: " + friend.gameObject.transform.position);
                 initial_positions[i] = friend.gameObject.transform.position;
@@ -135,7 +135,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
         private void FixedUpdate()
         {
-
+            /*
             enemies = GameObject.FindGameObjectsWithTag("Enemy");
 
             // this is how you access information about the terrain
@@ -163,7 +163,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log("Path completed for Player " + time);
 
             }
-
+            */
 
         }
 
@@ -184,11 +184,13 @@ namespace UnityStandardAssets.Vehicles.Car
             List<Vector3> path = new List<Vector3>();
             Vector3 waypoint;
             path.Add(start_pos);
-            for (int i = 0; i < EdgeArray.Length-1; i++)
+            for (int i = 0; i < EdgeArray.Length-3; i++)
             {
+               
                 waypoint = EdgeArray[i].Destination.worldPosition;
                 //Debug.Log(i+ "waypoint " + waypoint + EdgeArray.Length);
                 path.Add(waypoint);
+                
             }
             return path;
         }
@@ -238,6 +240,11 @@ namespace UnityStandardAssets.Vehicles.Car
                     Union(subsets, x, y, VertexArray);
                 }
                 k++;
+                if (k >= graph.EdgesCount)
+                {
+                    Debug.Log("STILL ENTERING HERE: "  + CarNumber);
+                    break;
+                }
             }
 
             return result;
@@ -385,7 +392,7 @@ namespace UnityStandardAssets.Vehicles.Car
         void OnDrawGizmos() // draws grid on map and shows car
         {
             // Show graph grids for main car only
-            if (CarNumber == 0)
+            if (CarNumber == 1)
             {
                 if (graph != null)
                 {
@@ -410,28 +417,34 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
 
-            //Show min span tree
-            if(min_tree != null)
-            {
-                Color[] colors = {Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
-                Gizmos.color = colors[CarNumber];
-                for (int i = 0; i < min_tree.Length - 1; ++i)
+
+                //Show min span tree
+                if (min_tree != null)
                 {
-                    Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
+                    Gizmos.color = colors[CarNumber];
+                    Gizmos.color = Color.red;
+                    for (int i = 0; i < min_tree.Length - 1; ++i)
+                    {
+                        Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                        
+                        //Gizmos.DrawSphere(min_tree[i].Source.worldPosition, 5f);
+                        //Gizmos.DrawSphere(min_tree[i].Destination.worldPosition, 2f);
+
+                    }
                 }
-            }
 
 
-            //Show the path to the goal
-            if (my_path != null)
-            {
-                Gizmos.color = Color.white;
-                for (int i = 0; i < my_path.Count - 1; ++i)
+                //Show the path to the goal
+                if (my_path != null)
                 {
-                   // Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
+                    Gizmos.color = Color.white;
+                    for (int i = 0; i < my_path.Count - 1; ++i)
+                    {
+                        // Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
+                    }
                 }
-            }
-
+            
         }
     }
 }
