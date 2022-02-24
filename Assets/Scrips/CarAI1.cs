@@ -20,7 +20,7 @@ namespace UnityStandardAssets.Vehicles.Car
         TerrainManager terrain_manager;
         public Graph graph;
         public GraphSTC map;
-        public Graph yellow_subgraph;
+        public Graph subgraph;
         public DARP_controller darp;
 
 
@@ -121,13 +121,13 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
-            yellow_subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
-            map = new GraphSTC(yellow_subgraph, start_pos);
-
+            subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
+            map = new GraphSTC(subgraph, start_pos);
+            Debug.Log("Car " + CarNumber + " Sub-Compoents: " + GraphComponents(map));
             // Plan your path here
             my_path = new List<Vector3>();
-            my_path = CreateDronePath(map);
-            min_tree = STC(map);
+            //my_path = CreateDronePath(map);
+            //min_tree = STC(map);
 
 
         }
@@ -200,7 +200,44 @@ namespace UnityStandardAssets.Vehicles.Car
 
         // MAIN FUNC: Separate terrain into different areas
 
+        // Sub-Func: Kurskal Algorithm to find if graph is disconnected
+        public int GraphComponents(GraphSTC graph)
+        {
+            int verticesCount = graph.VerticesCount;
+            Node[] VertexArray = graph.VertexArray;
+            int k = 0;
+            int e = 0;
+            int subset_count = verticesCount;
 
+            // Sort edges by cost- all costs are same
+            graph.EdgeList.Sort((e1, e2) => e1.Weight.CompareTo(e2.Weight));
+
+            // Create each vertex as subsets
+            Subset[] subsets = new Subset[verticesCount];
+            Subset sub;
+            for (int v = 0; v < verticesCount; ++v)
+            {
+                sub = new Subset();
+                sub.Parent = VertexArray[v];
+                sub.Rank = 0;
+                subsets[v] = sub;
+            }
+
+            // find disconnected comments
+            while (e < verticesCount - 1 && k < graph.EdgesCount)
+            {
+                Edge nextEdge = graph.EdgeList[k];
+                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
+                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
+
+                if (x != y)
+                {
+                    subset_count = subset_count - 1;
+                }
+                k++;
+            }
+            return subset_count;
+        }
 
 
         // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree

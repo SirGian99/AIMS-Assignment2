@@ -37,7 +37,7 @@ public class GraphSTC
                     {
                         newEdge.Source = node;
                         newEdge.Destination = neighbour;
-                        newEdge.Weight = Vector3.Distance(neighbour.worldPosition, start_pos);
+                        newEdge.Weight = ManhattenDistance(neighbour.worldPosition, start_pos);
                         this.EdgeList.Add(newEdge);
                     }
                 }
@@ -55,5 +55,11 @@ public class GraphSTC
         {
             this.VertexArray[v] = VertexList[v];
         }
+    }
+
+    public float ManhattenDistance(Vector3 a, Vector3 b)
+    {
+        float dist = Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y) + Mathf.Abs(a.z - b.z);
+        return dist;
     }
 }
