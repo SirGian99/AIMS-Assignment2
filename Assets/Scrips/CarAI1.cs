@@ -22,10 +22,11 @@ namespace UnityStandardAssets.Vehicles.Car
         public GraphSTC map;
         public List<GraphSTC> drone_maps;
 
+
         // Variables for Players and Turrets
         public GameObject[] friends;
         public GameObject[] enemies;
-        private float gunRange;
+        private float gunRange = 10f;
 
         // Variables for path & driving
         private float acceleration, max_speed;
