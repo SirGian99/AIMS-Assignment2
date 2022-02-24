@@ -18,9 +18,6 @@ namespace UnityStandardAssets.Vehicles.Car
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
         public Graph graph;
-        Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
-        public Rigidbody rigidbody;
-        public float gunRange = 10f;
         public DARP_controller darp;
 
 
@@ -28,7 +25,7 @@ namespace UnityStandardAssets.Vehicles.Car
         // Variables for Players and Turrets
         public GameObject[] friends;
         public GameObject[] enemies;
-        private float gunRange;
+        private float gunRange = 10f;
 
         // Variables for path & driving
         private float acceleration, max_speed;
@@ -416,7 +413,6 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
 
 
-                Node currentNode = graph.getNodeFromPoint(transform.position);
                 //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
                 Gizmos.color = Color.cyan; // position of car
                 Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
