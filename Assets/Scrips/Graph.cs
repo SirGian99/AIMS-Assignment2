@@ -48,7 +48,6 @@ public class Graph{
     }
 
 
-
     public void printTraversability()
     {
         string traversability_string = "";
@@ -225,7 +224,7 @@ public class Graph{
         return nodes[i, j];
     }
 
-    public List<Node> getNeighbours(Node node, bool print=false)
+    public List<Node> getNeighbours(Node node, bool print=false, bool check_vehicle = false)
     {
         List<Node> toReturn = new List<Node>();
         for(int i = -1; i<2; i++)
@@ -236,7 +235,9 @@ public class Graph{
             for(int j = -1; j<2; j++)
             {
                 int current_j = node.j + j;
-                if (current_j < 0 || current_j >= nodes.GetLength(1) || i==0 && j==0)
+                if (current_j < 0 || current_j >= nodes.GetLength(1) || i==0 && j==0 || nodes[current_i, current_j]==null)
+                    continue;
+                if (check_vehicle && node.assigned_veichle != nodes[current_i, current_j].assigned_veichle) //addition for Ass2.1
                     continue;
                 toReturn.Add(nodes[current_i, current_j]);
                 if (!nodes[current_i, current_j].walkable)
@@ -256,4 +257,93 @@ public class Graph{
         }
         return toReturn;
     }
+
+
+
+
+
+
+    public static Graph CreateSubGraph(Graph old_graph, int car_index, TerrainInfo terrainInfo, int x_N, int z_N)
+    {
+        if (terrainInfo == null)
+        {
+            //Debug.Log("terrain_manager is null");
+            return null;
+        }
+
+        if (x_N <= 0 || z_N <= 0)
+        {
+            //Debug.Log("x_N or z_N is less than or equal to 0");
+            return null;
+        }
+
+        //Debug.Log("myFunction");
+        Graph graph = new Graph(x_N, z_N, terrainInfo.x_low, terrainInfo.x_high, terrainInfo.z_low, terrainInfo.z_high);
+        float x_len = terrainInfo.x_high - terrainInfo.x_low;
+        float z_len = terrainInfo.z_high - terrainInfo.z_low;
+        float x_unit = x_len / x_N;
+        float z_unit = z_len / z_N;
+        graph.start_node = new Node((int)(terrainInfo.start_pos[0] / x_unit), (int)(terrainInfo.start_pos[2] / z_unit), terrainInfo.start_pos[0], terrainInfo.start_pos[2]);
+        graph.goal_node = new Node((int)(terrainInfo.goal_pos[0] / x_unit), (int)(terrainInfo.goal_pos[2] / z_unit), terrainInfo.goal_pos[0], terrainInfo.goal_pos[2]);
+
+        foreach(Node node in old_graph.nodes)
+        {
+            if(node.assigned_veichle == car_index)
+            {
+                graph.nodes[node.i, node.j] = node;
+
+            }
+        }
+
+        foreach (Node node in graph.nodes)
+        {
+            if (node != null)
+            {
+                node.neighbours = graph.getNeighbours(node, check_vehicle: true);
+            }
+        }
+
+        //// STC Code addition
+        //
+        //Create Edges and return edge list
+        graph.VerticesCount = graph.nodes.GetLength(0) * graph.nodes.GetLength(1);
+        List<Node> VertexList = new List<Node>();
+        Edge newEdge = new Edge();
+        graph.EdgeList = new List<Edge>();
+        foreach (Node node in graph.nodes)
+        {
+            if (node != null)
+            {
+                foreach (Node neighbour in node.neighbours)
+                {
+                    if (node.walkable == true && neighbour.walkable == true)
+                    {
+                        newEdge.Source = node;
+                        newEdge.Destination = neighbour;
+                        newEdge.Weight = 1;
+                        graph.EdgeList.Add(newEdge);
+                    }
+                }
+                if (node.walkable == true)
+                {
+                    VertexList.Add(node);
+                }
+            }
+
+        }
+        graph.EdgesCount = graph.EdgeList.Count;
+        graph.VerticesCount = VertexList.Count;
+        graph.VertexArray = new Node[graph.VerticesCount];
+        for (int v = 0; v < VertexList.Count; v++)
+        {
+            graph.VertexArray[v] = VertexList[v];
+        }
+
+        return graph;
+    }
+
+
+
+
+
 }

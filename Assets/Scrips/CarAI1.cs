@@ -21,6 +21,9 @@ namespace UnityStandardAssets.Vehicles.Car
         public Graph graph;
         public GraphSTC map;
         public List<GraphSTC> drone_maps;
+        public Graph yellow_subgraph;
+        public DARP_controller darp;
+
 
 
         // Variables for Players and Turrets
@@ -35,7 +38,6 @@ namespace UnityStandardAssets.Vehicles.Car
         private Vector3 start_pos, goal_pos;
         private int path_index;
         private List<Vector3> my_path;
-        public DARP_controller darp;
 
         //Temp
         private Edge[] min_tree;
@@ -116,11 +118,16 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
             }
 
-            // Plan your path here
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
+
+            yellow_subgraph = Graph.CreateSubGraph(graph, 2, terrain_manager.myInfo, x_scale, z_scale);
+
+
+            // Plan your path here
             my_path = new List<Vector3>();
             my_path = CreateDroneMap(map, darp, CarNumber);
             min_tree = STC(map);
+
 
         }
 
@@ -397,6 +404,35 @@ namespace UnityStandardAssets.Vehicles.Car
 
                 }
             }
+
+
+            if (yellow_subgraph != null)
+            {
+
+                Node currentNode = graph.getNodeFromPoint(transform.position);
+                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.color = Color.cyan; // position of car
+                //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                foreach (Node n in graph.nodes) // graph.path 
+                {
+                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
+                    int index = darp.assignment_matrix[n.i, n.j];
+
+                    Gizmos.color = colors[index];
+                    if (graph.path != null && graph.path.Contains(n))
+                        Gizmos.color = Color.white;
+
+                    Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+
+                }
+
+
+                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.color = Color.cyan; // position of car
+                Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+            }
+
 
             //Show min span tree
             if(min_tree != null)
