@@ -13,11 +13,14 @@ namespace UnityStandardAssets.Vehicles.Car
         private CarController m_Car; // the car controller we want to use
         Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
         private Rigidbody rigidbody;
+        public int CarNumber;
 
         // Variables for Terrain
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
         public Graph graph;
+        public GraphSTC map;
+        public List<GraphSTC> drone_maps;
 
         // Variables for Players and Turrets
         public GameObject[] friends;
@@ -95,6 +98,7 @@ namespace UnityStandardAssets.Vehicles.Car
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
             Debug.Log("Walkable nodes: " + graph.walkable_nodes);
             Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
+            map = new GraphSTC(graph, start_pos);
 
             // Get Array of Friends and Eniemies
             friends = GameObject.FindGameObjectsWithTag("Player");
@@ -105,12 +109,16 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log(friend + " position: " + friend.gameObject.transform.position);
                 initial_positions[i] = friend.gameObject.transform.position;
                 i++;
+                if(friend.gameObject.transform.position == m_Car.transform.position)
+                {
+                    CarNumber = i;
+                }
             }
 
             // Plan your path here
             my_path = new List<Vector3>();
-            my_path = createDARP(graph, start_pos);
-            min_tree = STC(graph);
+            my_path = createDARP(map, start_pos);
+            min_tree = STC(map);
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
 
         }
@@ -152,7 +160,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Divide and conquer
-        public List<Vector3> createDARP(Graph graph, Vector3 start_pos)
+        public List<Vector3> createDARP(GraphSTC graph, Vector3 start_pos)
         {
             Edge[] MinSTC = STC(graph);
             List<Vector3> path = new List<Vector3>();
@@ -185,7 +193,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
-        public Edge[] STC(Graph graph)
+        public Edge[] STC(GraphSTC graph)
         {
             int verticesCount = graph.VerticesCount;
             Edge[] result = new Edge[verticesCount];
@@ -194,7 +202,7 @@ namespace UnityStandardAssets.Vehicles.Car
             int e = 0;
 
             // Sort edges by cost- all costs are same
-            //graph.EdgeList = graph.EdgeList.Sort(p => p.Weight);
+            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
 
             // Create each vertex as subsets
             Subset[] subsets = new Subset[verticesCount];
@@ -400,14 +408,14 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
 
-            //Show the path to the goal
+            ////Show the path to the goal
             //if (my_path != null)
             //{
             //    Gizmos.color = Color.white;
             //    for (int i = 0; i < my_path.Count - 1; ++i)
             //    {
             //        Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
-            //    }
+            //}
             //}
 
         }

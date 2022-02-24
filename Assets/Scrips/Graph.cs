@@ -3,12 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-public struct Edge
-{
-    public Node Source;
-    public Node Destination;
-    public int Weight;
-}
+
 
 public class Graph{
     public int i_size;
@@ -30,11 +25,11 @@ public class Graph{
         
     public Node[,] nodes;
 
-    //STC variables
-    public int VerticesCount;
-    public int EdgesCount;
-    public List<Edge> EdgeList;
-    public Node[] VertexArray;
+    ////STC variables
+    //public int VerticesCount;
+    //public int EdgesCount;
+    //public List<Edge> EdgeList;
+    //public Node[] VertexArray;
 
 
     public Graph(int i_size, int j_size, float x_low, float x_high, float z_low, float z_high)
@@ -182,39 +177,37 @@ public class Graph{
             node.neighbours = graph.getNeighbours(node);
         }
 
-        //// STC Code addition
-        //
-        //Create Edges and return edge list
-        graph.VerticesCount = graph.nodes.GetLength(0) * graph.nodes.GetLength(1);
-        List<Node> VertexList = new List<Node>();
-        Edge newEdge = new Edge();
-        graph.EdgeList = new List<Edge>();
-        foreach (Node node in graph.nodes)
-        {
-
-            foreach (Node neighbour in node.neighbours)
-            {
-                if (node.walkable == true && neighbour.walkable == true)
-                {
-                    newEdge.Source = node;
-                    newEdge.Destination = neighbour;
-                    newEdge.Weight = 1;
-                    graph.EdgeList.Add(newEdge);
-                }
-            }
-            if (node.walkable == true)
-            {
-                VertexList.Add(node);
-            }
+        ////// STC Code addition
+        ////
+        ////Create EdgesList and VertexArray
+        //List<Node> VertexList = new List<Node>();
+        //Edge newEdge = new Edge();
+        //graph.EdgeList = new List<Edge>();
+        //foreach (Node node in graph.nodes)
+        //{
+        //    foreach (Node neighbour in node.neighbours)
+        //    {
+        //        if (node.walkable == true && neighbour.walkable == true)
+        //        {
+        //            newEdge.Source = node;
+        //            newEdge.Destination = neighbour;
+        //            newEdge.Weight = 1;
+        //            graph.EdgeList.Add(newEdge);
+        //        }
+        //    }
+        //    if (node.walkable == true)
+        //    {
+        //        VertexList.Add(node);
+        //    }
             
-        }
-        graph.EdgesCount = graph.EdgeList.Count;
-        graph.VerticesCount = VertexList.Count;
-        graph.VertexArray = new Node[graph.VerticesCount];
-        for (int v = 0; v < VertexList.Count; v++)
-        {
-            graph.VertexArray[v] = VertexList[v];
-        }
+        //}
+        //graph.EdgesCount = graph.EdgeList.Count;
+        //graph.VerticesCount = VertexList.Count;
+        //graph.VertexArray = new Node[graph.VerticesCount];
+        //for (int v = 0; v < VertexList.Count; v++)
+        //{
+        //    graph.VertexArray[v] = VertexList[v];
+        //}
 
         return graph;
     }
