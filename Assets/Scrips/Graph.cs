@@ -306,6 +306,28 @@ public class Graph{
         return graph;
     }
 
+    public static Graph MergeSubGraph(Graph graph, int car_index, List<Node> VertexList)
+    {
+        foreach (Node node in VertexList)
+        {
+            if (node.assigned_veichle == car_index)
+            {
+                graph.nodes[node.i, node.j] = node;
+
+            }
+        }
+
+        foreach (Node node in graph.nodes)
+        {
+            if (node != null)
+            {
+                node.neighbours = graph.getNeighbours(node, check_vehicle: true);
+            }
+        }
+
+        return graph;
+    }
+
 
 
 
