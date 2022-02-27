@@ -45,8 +45,11 @@ public class GraphSTC
                         if (Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) >= 1.9f && Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) <= 2.5f)
                         {
                             //newEdge.Weight *= 100;
-                            newEdge.Weight *= 1;
+                            newEdge.Weight *= 100;
                             Debug.Log("QUI Current node: " + node.worldPosition + "neigh node: " + neighbour.worldPosition);
+                        }else if (newEdge.Source.worldPosition.x != newEdge.Destination.worldPosition.x && newEdge.Source.worldPosition.z != newEdge.Destination.worldPosition.z)
+                        {
+                            newEdge.Weight *= 50;
                         }
                         this.EdgeList.Add(newEdge);
                     }

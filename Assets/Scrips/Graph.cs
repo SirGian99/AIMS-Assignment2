@@ -242,6 +242,8 @@ public class Graph{
                     continue;
                 if (nodes[current_i, current_j] == node || toReturn.Contains(nodes[current_i, current_j]))
                     continue;
+                if (current_i != node.i && current_j != node.j)///TODO TODO TODO REMOVE
+                    continue;
                 toReturn.Add(nodes[current_i, current_j]);
 
 
