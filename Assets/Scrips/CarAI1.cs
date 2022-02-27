@@ -25,7 +25,6 @@ namespace UnityStandardAssets.Vehicles.Car
         public DARP_controller darp;
 
 
-
         // Variables for Players and Turrets
         public GameObject[] friends;
         public GameObject[] enemies;
@@ -113,19 +112,27 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     CarNumber = i+1;
                 }
-                Debug.Log(friend + " position: " + friend.gameObject.transform.position);
+                //Debug.Log(friend + " position: " + friend.gameObject.transform.position);
                 initial_positions[i] = friend.gameObject.transform.position;
                 i++;
 
             }
 
 
-
+            // Plan your path here
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos);
-            Debug.Log("Car " + CarNumber + " Sub-Compoents: " + GraphComponents(map));
-            // Plan your path here
+            Debug.Log("Car " + CarNumber + " Compoents: " + GraphComponents(map));
+            if(GraphComponents(map)!=1)
+            {
+                List<Node> VertexList = SpiltGraph(map, true);
+                //Search neighbour index
+
+                //Merge Graph
+
+            }
+            
             my_path = new List<Vector3>();
             my_path = CreateDronePath(map);
             min_tree = STC(map);
@@ -244,17 +251,17 @@ namespace UnityStandardAssets.Vehicles.Car
 
         // MAIN FUNC: Separate terrain into different areas
 
-        // Sub-Func: Kurskal Algorithm to find if graph is disconnected
+        // Sub-Func: Kurskal Algorithm to find number of compoenets in graph
         public int GraphComponents(GraphSTC graph)
         {
             int verticesCount = graph.VerticesCount;
             Node[] VertexArray = graph.VertexArray;
             int k = 0;
             int e = 0;
-            int subset_count = verticesCount;
+            int subset_count = 0;
 
             // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1, e2) => e1.Weight.CompareTo(e2.Weight));
+            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
 
             // Create each vertex as subsets
             Subset[] subsets = new Subset[verticesCount];
@@ -267,8 +274,8 @@ namespace UnityStandardAssets.Vehicles.Car
                 subsets[v] = sub;
             }
 
-            // find disconnected comments
-            while (e < verticesCount - 1 && k < graph.EdgesCount)
+            // build min tree
+            while (e < verticesCount - 1)
             {
                 Edge nextEdge = graph.EdgeList[k];
                 Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
@@ -276,12 +283,104 @@ namespace UnityStandardAssets.Vehicles.Car
 
                 if (x != y)
                 {
-                    subset_count = subset_count - 1;
+                    e++;
+                    //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
+                    Union(subsets, x, y, VertexArray);
                 }
                 k++;
+                
+                if (k >= graph.EdgesCount)
+                {
+                    //Debug.Log("Car " + CarNumber + " TotalEdges, k: " + graph.EdgesCount + " " + k + " MinEdges,e"+ (verticesCount-1) + " " + e  + " " );
+                    break;
+                }
             }
+            subset_count = verticesCount - e;
+
             return subset_count;
         }
+
+        // Sub-Func: Kurskal Algorithm to sub-graph
+        public List<Node> SpiltGraph(GraphSTC graph, Boolean smallest)
+        {
+            int verticesCount = graph.VerticesCount;
+            List<Node> result = new List<Node>();
+            Node[] VertexArray = graph.VertexArray;
+            int k = 0;
+            int e = 0;
+            int subset_count = 0;
+
+            // Sort edges by cost- all costs are same
+            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
+
+            // Create each vertex as subsets
+            Subset[] subsets = new Subset[verticesCount];
+            Subset sub;
+            for (int v = 0; v < verticesCount; ++v)
+            {
+                sub = new Subset();
+                sub.Parent = VertexArray[v];
+                sub.Rank = 0;
+                subsets[v] = sub;
+            }
+
+            // build min tree
+            while (e < verticesCount - 1)
+            {
+                Edge nextEdge = graph.EdgeList[k];
+                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
+                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
+
+                if (x != y)
+                {
+                    e++;
+                    Union(subsets, x, y, VertexArray);
+                }
+                k++;
+
+                if (k >= graph.EdgesCount)
+                {
+                    break;
+                }
+            }
+            subset_count = verticesCount - e;
+
+
+            if (subset_count == 2)
+            {
+                //CASE: Two Subsets are created
+                int set1 = subsets[0].Rank;
+                List<Node> Vertex_set1 = new List<Node>();
+                List<Node> Vertex_set2 = new List<Node>();
+                for (int r = 0; r < subsets.Length; r++)
+                {
+                    if (subsets[r].Rank == set1)
+                    {
+                        Vertex_set1.Add(subsets[r].Parent);
+                    }
+                    else
+                    {
+                        Vertex_set2.Add(subsets[r].Parent);
+                    }
+                }
+                
+                if (smallest == true)
+                {
+                    result = Vertex_set1.Count < Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
+                }
+                else
+                {
+                   result = Vertex_set1.Count > Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
+                }
+            }
+            
+
+            return result;
+        }
+
+        // Sub-Func: Find Closest neighbour
+
+
 
 
         // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
@@ -294,7 +393,7 @@ namespace UnityStandardAssets.Vehicles.Car
             int e = 0;
 
             // Sort edges by cost- all costs are same
-            //graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
+            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
 
             // Create each vertex as subsets
             Subset[] subsets = new Subset[verticesCount];
@@ -344,11 +443,12 @@ namespace UnityStandardAssets.Vehicles.Car
                     Union(subsets, x, y, VertexArray);
                 }
                 k++;
-                if (k >= graph.EdgesCount)
-                {
-                    Debug.Log("STILL ENTERING HERE: "  + CarNumber);
-                    break;
-                }
+                //Debug.Log("Car " + CarNumber + " k,e: " + k + " " + e + " " + graph.EdgesCount);
+                //if (k >= graph.EdgesCount)
+                //{
+                //    Debug.Log("STILL ENTERING HERE: "  + CarNumber);
+                //    break;
+                //}
             }
 
             return result;
