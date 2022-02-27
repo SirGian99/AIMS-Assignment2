@@ -14,6 +14,7 @@ namespace UnityStandardAssets.Vehicles.Car
         Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
         private Rigidbody rigidbody;
         public int CarNumber;
+        
 
         // Variables for Terrain
         public GameObject terrain_manager_game_object;
@@ -126,16 +127,16 @@ namespace UnityStandardAssets.Vehicles.Car
             Debug.Log("Car " + CarNumber + " Sub-Compoents: " + GraphComponents(map));
             // Plan your path here
             my_path = new List<Vector3>();
-            //my_path = CreateDronePath(map);
-            //min_tree = STC(map);
-
+            my_path = CreateDronePath(map);
+            min_tree = STC(map);
+            graph = subgraph;
 
         }
 
 
         private void FixedUpdate()
         {
-            /*
+            
             enemies = GameObject.FindGameObjectsWithTag("Enemy");
 
             // this is how you access information about the terrain
@@ -163,7 +164,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log("Path completed for Player " + time);
 
             }
-            */
+            
 
         }
 
@@ -173,18 +174,58 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             Edge[] MinSTC = STC(graph);
             List<Vector3> path = new List<Vector3>();
-            path = ComputePath(MinSTC, graph.start_pos);
+            path = ComputePath(graph, MinSTC, graph.start_pos);
 
             return path;
         }
 
         // Sub-Func: Compute path 
-        private List<Vector3> ComputePath(Edge[] EdgeArray, Vector3 start_pos)
+        private List<Vector3> ComputePath(GraphSTC graph, Edge[] EdgeArray, Vector3 starting_position)
         {
             List<Vector3> path = new List<Vector3>();
             Vector3 waypoint;
-            path.Add(start_pos);
-            for (int i = 0; i < EdgeArray.Length-3; i++)
+            Node current_node;
+            if (graph.starting_node != null)
+            {
+                current_node = graph.starting_node;
+            }
+            else
+            {
+                current_node = graph.get_closest_node(starting_position);
+               
+            }
+            path.Add(current_node.worldPosition);
+            current_node.visited = true;
+            for(int i = 0; i < graph.VerticesCount;)
+            {
+                Node right = current_node.right_child;
+                Node left = current_node.left_child;
+                if(right != null && !right.visited)
+                {
+                    path.Add(right.worldPosition);
+                    right.visited = true;
+                    current_node = right;
+                    i++;
+                }
+                else if(left != null && !left.visited)
+                {
+                    path.Add(left.worldPosition);
+                    left.visited = true;
+                    current_node = left;
+                    i++;
+                }
+                else if(current_node.parent != null)
+                {
+                    path.Add(current_node.parent.worldPosition);
+                    current_node = current_node.parent;
+                    
+                }
+                else
+                {
+                    break;
+                }
+            }
+            /*for (int i = 0; i < EdgeArray.Length-3; i++)
             {
                
                 waypoint = EdgeArray[i].Destination.worldPosition;
@@ -192,6 +233,9 @@ namespace UnityStandardAssets.Vehicles.Car
                 path.Add(waypoint);
                 
             }
+            */
+
+
             return path;
         }
 
@@ -273,6 +317,29 @@ namespace UnityStandardAssets.Vehicles.Car
                 if (x != y)
                 {
                     result[e++] = nextEdge;
+                    nextEdge.Destination.parent = nextEdge.Source;
+                    if (nextEdge.Source.parent == null || nextEdge.Source.parent.i == nextEdge.Destination.i || nextEdge.Source.parent.j == nextEdge.Destination.j)
+                    {
+                        if (nextEdge.Source.right_child != null)
+                        {
+                            Debug.Log("ERROR RIGHT!!!");
+                        }
+                        else
+                        {
+                            nextEdge.Source.right_child = nextEdge.Destination;
+                        }
+                    }
+                    else
+                    {
+                        if (nextEdge.Source.left_child != null)
+                        {
+                            Debug.Log("ERROR LEFT!!!");
+                        }
+                        else
+                        {
+                            nextEdge.Source.left_child = nextEdge.Destination;
+                        }
+                    }
                     //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
                     Union(subsets, x, y, VertexArray);
                 }
@@ -428,43 +495,82 @@ namespace UnityStandardAssets.Vehicles.Car
         //MAIN FUNC: Visualise
         void OnDrawGizmos() // draws grid on map and shows car
         {
-            // Show graph grids for main car only
-            if (CarNumber == 1)
-            {
-                if (graph != null)
+            Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
+
+
+            
+
+            if (graph != null)
                 {
+
                     Node currentNode = graph.getNodeFromPoint(transform.position);
                     //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
                     Gizmos.color = Color.cyan; // position of car
                     //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
-                    Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                    foreach (Node n in graph.nodes) // graph.path 
+                    //Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                int z = 0;
+                foreach (Node n in graph.nodes) // graph.path 
+                {
+                    if (n!= null &&(n.assigned_veichle == CarNumber || !n.walkable))
                     {
-                        Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
                         int index = darp.assignment_matrix[n.i, n.j];
 
                         Gizmos.color = colors[index];
                         if (graph.path != null && graph.path.Contains(n))
                             Gizmos.color = Color.white;
 
-                        Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                        float scale_factor = n.is_supernode ? 1.8f : 0.9f;
+                        Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
+
+                        //This code below draws the neighbours of the bigger nodes
+                        /*if(z <= 300 && n.is_supernode && n.assigned_veichle == CarNumber)
+                        {
+                            foreach(Node neigh in n.neighbours)
+                            {
+                                if (neigh.walkable)
+                                {
+                                    Gizmos.color = Color.black;
+                                    scale_factor = neigh.is_supernode ? 1.8f : 0.9f;
+                                    Gizmos.DrawCube(neigh.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
+                                }
+                            }
+                            z++;
+                        }
+                        */
 
                     }
+
+                }
+                }
+
+
+            if (map != null)
+            {
+                foreach (Edge edge in map.EdgeList)
+                {
+                    //UNCOMMENT THIS TO SEE ALL THE EDGES
+                    /*
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawLine(edge.Source.worldPosition, edge.Destination.worldPosition);
+                    Gizmos.DrawSphere(edge.Source.worldPosition, 2f);
+                    Gizmos.color = Color.green;
+                    Gizmos.DrawSphere(edge.Destination.worldPosition, 2f);
+                    */
                 }
             }
 
 
-
-                //Show min span tree
-                if (min_tree != null)
+            //Show min span tree
+            if (min_tree != null)
                 {
-                    Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
                     Gizmos.color = colors[CarNumber];
-                    Gizmos.color = Color.red;
+                    //Gizmos.color = Color.red;
                     for (int i = 0; i < min_tree.Length - 1; ++i)
                     {
+
+                    if (min_tree[i].Source != null && min_tree[i].Destination != null)
                         Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
-                        
+                        ;
                         //Gizmos.DrawSphere(min_tree[i].Source.worldPosition, 5f);
                         //Gizmos.DrawSphere(min_tree[i].Destination.worldPosition, 2f);
 
@@ -475,12 +581,17 @@ namespace UnityStandardAssets.Vehicles.Car
                 //Show the path to the goal
                 if (my_path != null)
                 {
-                    Gizmos.color = Color.white;
+                    Gizmos.color = Color.black;
                     for (int i = 0; i < my_path.Count - 1; ++i)
                     {
-                        // Gizmos.DrawLine(my_path[i] + Vector3.up, my_path[i + 1] + Vector3.up);
+                        ;
+                        //Gizmos.DrawLine(my_path[i], my_path[i + 1]);
                     }
                 }
+
+
+            
+
             
         }
     }

@@ -141,8 +141,10 @@ public class DARP_controller
 
     }
 
-    public void naive_assignment()
+    public void naive_assignment(Vector3? initial_position = null)
     {
+        if (!initial_position.HasValue)
+            initial_position = graph.centre;
         for (int i = 0; i < evaluation_matrix.GetLength(1); i++)
         {
             for (int j = 0; j < evaluation_matrix.GetLength(2); j++)
@@ -152,7 +154,7 @@ public class DARP_controller
                 {
                     Vector3 direction = (current.worldPosition - graph.centre).normalized;
                     if (direction.y != 0)
-                        direction = (new Vector3(current.worldPosition.x - graph.centre.x, 0, current.worldPosition.z - graph.centre.z)).normalized;
+                        direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
 
                     float angle = get_angle(direction.x, direction.z);
                     /*if (angle < 0 && direction.z<0)

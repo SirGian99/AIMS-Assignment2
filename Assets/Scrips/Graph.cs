@@ -224,22 +224,27 @@ public class Graph{
         return nodes[i, j];
     }
 
-    public List<Node> getNeighbours(Node node, bool print=false, bool check_vehicle = false)
+    public List<Node> getNeighbours(Node node, bool print=false, bool check_vehicle = false, bool supernodes = false)
     {
         List<Node> toReturn = new List<Node>();
-        for(int i = -1; i<2; i++)
+        int supernode_addition = supernodes ? 1:0; 
+        for(int i = -1; i<2+supernode_addition; i++)
         {
             int current_i = node.i + i;
             if (current_i < 0 || current_i >= nodes.GetLength(0))
                 continue;
-            for(int j = -1; j<2; j++)
+            for(int j = -1; j<2+supernode_addition; j++)
             {
                 int current_j = node.j + j;
                 if (current_j < 0 || current_j >= nodes.GetLength(1) || i==0 && j==0 || nodes[current_i, current_j]==null)
                     continue;
                 if (check_vehicle && node.assigned_veichle != nodes[current_i, current_j].assigned_veichle) //addition for Ass2.1
                     continue;
+                if (nodes[current_i, current_j] == node || toReturn.Contains(nodes[current_i, current_j]))
+                    continue;
                 toReturn.Add(nodes[current_i, current_j]);
+
+
                 if (!nodes[current_i, current_j].walkable)
                 {
                     if (node.i == current_i)
@@ -295,11 +300,73 @@ public class Graph{
             }
         }
 
+        for(int i = 0; i<graph.nodes.GetLength(0)-1; i++)
+        {
+            for (int j = 0; j < graph.nodes.GetLength(1)-1; j++)
+            {
+                Node node = graph.nodes[i, j];
+                if (node != null && !node.is_supernode && node.walkable)
+                {
+                    if(graph.nodes[i + 1, j]!=null && graph.nodes[i, j + 1] != null && graph.nodes[i + 1, j + 1] != null &&
+                        graph.nodes[i+1, j].walkable && graph.nodes[i, j+1].walkable && graph.nodes[i + 1, j+1].walkable &&
+                        !(graph.nodes[i + 1, j].is_supernode && graph.nodes[i, j + 1].is_supernode && graph.nodes[i + 1, j + 1].is_supernode))
+                    {
+                        //MERGING NODES
+                        node.is_supernode = true;
+                        node.worldPosition = new Vector3(node.worldPosition.x + graph.x_unit / 2, 0, node.worldPosition.z + graph.z_unit / 2);
+                        node.merged_nodes = new List<Node>();
+                        node.merged_nodes.Add(node);
+                        node.merged_nodes.Add(old_graph.nodes[i + 1, j]);
+                        node.merged_nodes.Add(old_graph.nodes[i, j + 1]);
+                        node.merged_nodes.Add(old_graph.nodes[i + 1, j + 1]);
+                        graph.nodes[i + 1, j] = node;
+                        graph.nodes[i, j + 1] = node;
+                        graph.nodes[i + 1, j + 1] = node;
+                        old_graph.nodes[i + 1, j] = node;
+                        old_graph.nodes[i, j + 1] = node;
+                        old_graph.nodes[i + 1, j + 1] = node;
+                        node.neighbours = null;
+                        
+
+
+                        /*
+                        graph.nodes[i + 1, j].is_supernode = true;
+                        graph.nodes[i, j + 1].is_supernode = true;
+                        graph.nodes[i + 1, j + 1].is_supernode = true;
+                        graph.nodes[i + 1, j].worldPosition = node.worldPosition;
+                        graph.nodes[i, j + 1].worldPosition = node.worldPosition;
+                        graph.nodes[i + 1, j + 1].worldPosition = node.worldPosition;
+                        */
+
+                    }
+                    node.neighbours = null; //ADDED TODO REMOVE
+
+
+                }
+            }
+        }
+
         foreach (Node node in graph.nodes)
         {
             if (node != null)
             {
-                node.neighbours = graph.getNeighbours(node, check_vehicle: true);
+                if (node.neighbours == null)
+                {
+                    node.neighbours = graph.getNeighbours(node, check_vehicle: true, supernodes:node.is_supernode);
+                }
+            }
+        }
+
+        foreach(Node n in graph.nodes)
+        {
+            if(n!=null && n.is_supernode && n.assigned_veichle == car_index)
+            {
+                graph.nodes[n.i + 1, n.j] = null;
+                graph.nodes[n.i, n.j + 1] = null;
+                graph.nodes[n.i + 1, n.j + 1] = null;
+                old_graph.nodes[n.i + 1, n.j] = null;
+                old_graph.nodes[n.i, n.j + 1] = null;
+                old_graph.nodes[n.i + 1, n.j + 1] = null;
             }
         }
 

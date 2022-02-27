@@ -12,16 +12,20 @@ public struct Edge
 public class GraphSTC
 {
     public Vector3 start_pos;
-    
+    public Node starting_node;
+
     // STC variables
     public int VerticesCount;
     public int EdgesCount;
     public List<Edge> EdgeList;
     public Node[] VertexArray;
+    public Graph original_graph;
 
     public GraphSTC(Graph graph, Vector3 start_pos)
     {
         this.start_pos = start_pos;
+        original_graph = graph;
+        this.starting_node = graph.getNodeFromPoint(start_pos);
         this.EdgeList = new List<Edge>();
 
         //Create EdgesList and VertexArray
@@ -38,6 +42,12 @@ public class GraphSTC
                         newEdge.Source = node;
                         newEdge.Destination = neighbour;
                         newEdge.Weight = ManhattenDistance(neighbour.worldPosition, start_pos);
+                        if (Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) >= 1.9f && Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) <= 2.5f)
+                        {
+                            //newEdge.Weight *= 100;
+                            newEdge.Weight *= 1;
+                            Debug.Log("QUI Current node: " + node.worldPosition + "neigh node: " + neighbour.worldPosition);
+                        }
                         this.EdgeList.Add(newEdge);
                     }
                 }
@@ -61,5 +71,24 @@ public class GraphSTC
     {
         float dist = Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y) + Mathf.Abs(a.z - b.z);
         return dist;
+    }
+
+    public Node get_closest_node(Vector3 position)
+    {
+        Node closest = VertexArray[0];
+        bool found = false;
+        while (!found)
+        {
+            foreach (Node node in closest.neighbours)
+            {
+                if (Vector3.Distance(position, node.worldPosition) < Vector3.Distance(position, closest.worldPosition))
+                {
+                    closest = node;
+                    break;
+                }
+                found = true;
+            }
+        }
+        return closest;
     }
 }

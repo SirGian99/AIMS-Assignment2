@@ -26,7 +26,15 @@ public class Node
         }
     }
     public Node parent;
+    public Node left_child;
+    public Node right_child; //TODO REMOVE
+    public List<Node> children;
+
+    public bool visited = false;
+    public List<Node> merged_nodes;
+
     public List<Node> neighbours;
+    public bool is_supernode = false;
 
 
     public Node(int i, int j, float x_pos, float z_pos, bool walkable=true)
