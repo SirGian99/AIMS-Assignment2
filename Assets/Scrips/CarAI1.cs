@@ -37,9 +37,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private Vector3 start_pos, goal_pos;
         private int path_index;
         private List<Vector3> my_path;
-
-        //Temp
-        private Edge[] min_tree;
+        private Edge[] my_tree;
 
 
         private void Start()
@@ -120,23 +118,10 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             // Plan your path here
-            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
-            subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
-            map = new GraphSTC(subgraph, start_pos);
-            Debug.Log("Car " + CarNumber + " Compoents: " + GraphComponents(map));
-            if(GraphComponents(map)!=1)
-            {
-                List<Node> VertexList = SpiltGraph(map, true);
-                //Search neighbour index
-
-                //Merge Graph
-
-            }
-            
+            darp = new DARP_controller(terrain_manager.myInfo, friends.Length, initial_positions, graph, 0.0004f, 100);
             my_path = new List<Vector3>();
-            my_path = CreateDronePath(map);
-            min_tree = STC(map);
-            graph = subgraph;
+            my_path = darp.all_paths[CarNumber - 1];
+            my_tree = darp.STC(darp.subgraphs[CarNumber - 1]);
 
         }
 
@@ -176,321 +161,7 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
-        // MAIN FUNC: Divide and conquer
-        public List<Vector3> CreateDronePath(GraphSTC graph)
-        {
-            Edge[] MinSTC = STC(graph);
-            List<Vector3> path = new List<Vector3>();
-            path = ComputePath(graph, MinSTC, graph.start_pos);
-
-            return path;
-        }
-
-        // Sub-Func: Compute path 
-        private List<Vector3> ComputePath(GraphSTC graph, Edge[] EdgeArray, Vector3 starting_position)
-        {
-            List<Vector3> path = new List<Vector3>();
-            Vector3 waypoint;
-            Node current_node;
-            if (graph.starting_node != null)
-            {
-                current_node = graph.starting_node;
-            }
-            else
-            {
-                current_node = graph.get_closest_node(starting_position);
-               
-            }
-            path.Add(current_node.worldPosition);
-            current_node.visited = true;
-            for(int i = 0; i < graph.VerticesCount;)
-            {
-                Node right = current_node.right_child;
-                Node left = current_node.left_child;
-                if(right != null && !right.visited)
-                {
-                    path.Add(right.worldPosition);
-                    right.visited = true;
-                    current_node = right;
-                    i++;
-                }
-                else if(left != null && !left.visited)
-                {
-                    path.Add(left.worldPosition);
-                    left.visited = true;
-                    current_node = left;
-                    i++;
-                }
-                else if(current_node.parent != null)
-                {
-                    path.Add(current_node.parent.worldPosition);
-                    current_node = current_node.parent;
-                    
-                }
-                else
-                {
-                    break;
-                }
-            }
-            /*for (int i = 0; i < EdgeArray.Length-3; i++)
-            {
-               
-                waypoint = EdgeArray[i].Destination.worldPosition;
-                //Debug.Log(i+ "waypoint " + waypoint + EdgeArray.Length);
-                path.Add(waypoint);
-                
-            }
-            */
-
-
-            return path;
-        }
-
-
-
-
-        // MAIN FUNC: Separate terrain into different areas
-
-        // Sub-Func: Kurskal Algorithm to find number of compoenets in graph
-        public int GraphComponents(GraphSTC graph)
-        {
-            int verticesCount = graph.VerticesCount;
-            Node[] VertexArray = graph.VertexArray;
-            int k = 0;
-            int e = 0;
-            int subset_count = 0;
-
-            // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
-
-            // Create each vertex as subsets
-            Subset[] subsets = new Subset[verticesCount];
-            Subset sub;
-            for (int v = 0; v < verticesCount; ++v)
-            {
-                sub = new Subset();
-                sub.Parent = VertexArray[v];
-                sub.Rank = 0;
-                subsets[v] = sub;
-            }
-
-            // build min tree
-            while (e < verticesCount - 1)
-            {
-                Edge nextEdge = graph.EdgeList[k];
-                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
-                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
-
-                if (x != y)
-                {
-                    e++;
-                    //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
-                    Union(subsets, x, y, VertexArray);
-                }
-                k++;
-                
-                if (k >= graph.EdgesCount)
-                {
-                    //Debug.Log("Car " + CarNumber + " TotalEdges, k: " + graph.EdgesCount + " " + k + " MinEdges,e"+ (verticesCount-1) + " " + e  + " " );
-                    break;
-                }
-            }
-            subset_count = verticesCount - e;
-
-            return subset_count;
-        }
-
-        // Sub-Func: Kurskal Algorithm to sub-graph
-        public List<Node> SpiltGraph(GraphSTC graph, Boolean smallest)
-        {
-            int verticesCount = graph.VerticesCount;
-            List<Node> result = new List<Node>();
-            Node[] VertexArray = graph.VertexArray;
-            int k = 0;
-            int e = 0;
-            int subset_count = 0;
-
-            // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
-
-            // Create each vertex as subsets
-            Subset[] subsets = new Subset[verticesCount];
-            Subset sub;
-            for (int v = 0; v < verticesCount; ++v)
-            {
-                sub = new Subset();
-                sub.Parent = VertexArray[v];
-                sub.Rank = 0;
-                subsets[v] = sub;
-            }
-
-            // build min tree
-            while (e < verticesCount - 1)
-            {
-                Edge nextEdge = graph.EdgeList[k];
-                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
-                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
-
-                if (x != y)
-                {
-                    e++;
-                    Union(subsets, x, y, VertexArray);
-                }
-                k++;
-
-                if (k >= graph.EdgesCount)
-                {
-                    break;
-                }
-            }
-            subset_count = verticesCount - e;
-
-
-            if (subset_count == 2)
-            {
-                //CASE: Two Subsets are created
-                int set1 = subsets[0].Rank;
-                List<Node> Vertex_set1 = new List<Node>();
-                List<Node> Vertex_set2 = new List<Node>();
-                for (int r = 0; r < subsets.Length; r++)
-                {
-                    if (subsets[r].Rank == set1)
-                    {
-                        Vertex_set1.Add(subsets[r].Parent);
-                    }
-                    else
-                    {
-                        Vertex_set2.Add(subsets[r].Parent);
-                    }
-                }
-                
-                if (smallest == true)
-                {
-                    result = Vertex_set1.Count < Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
-                }
-                else
-                {
-                   result = Vertex_set1.Count > Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
-                }
-            }
-            
-
-            return result;
-        }
-
-        // Sub-Func: Find Closest neighbour
-
-
-
-
-        // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
-        public Edge[] STC(GraphSTC graph)
-        {
-            int verticesCount = graph.VerticesCount;
-            Edge[] result = new Edge[verticesCount];
-            Node[] VertexArray = graph.VertexArray;
-            int k = 0;
-            int e = 0;
-
-            // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
-
-            // Create each vertex as subsets
-            Subset[] subsets = new Subset[verticesCount];
-            Subset sub;
-            for (int v = 0; v < verticesCount; ++v)
-            {
-                sub = new Subset();
-                sub.Parent = VertexArray[v];
-                sub.Rank = 0;
-                subsets[v] = sub;
-            }
-
-            // build min tree
-            while (e < verticesCount - 1)
-            {
-                Edge nextEdge = graph.EdgeList[k];
-                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
-                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
-
-                if (x != y)
-                {
-                    result[e++] = nextEdge;
-                    nextEdge.Destination.parent = nextEdge.Source;
-                    if (nextEdge.Source.parent == null || nextEdge.Source.parent.i == nextEdge.Destination.i || nextEdge.Source.parent.j == nextEdge.Destination.j)
-                    {
-                        if (nextEdge.Source.right_child != null)
-                        {
-                            Debug.Log("ERROR RIGHT!!!");
-                        }
-                        else
-                        {
-                            nextEdge.Source.right_child = nextEdge.Destination;
-                        }
-                    }
-                    else
-                    {
-                        if (nextEdge.Source.left_child != null)
-                        {
-                            Debug.Log("ERROR LEFT!!!");
-                        }
-                        else
-                        {
-                            nextEdge.Source.left_child = nextEdge.Destination;
-                        }
-                    }
-                    //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
-                    Union(subsets, x, y, VertexArray);
-                }
-                k++;
-                //Debug.Log("Car " + CarNumber + " k,e: " + k + " " + e + " " + graph.EdgesCount);
-                //if (k >= graph.EdgesCount)
-                //{
-                //    Debug.Log("STILL ENTERING HERE: "  + CarNumber);
-                //    break;
-                //}
-            }
-
-            return result;
-        }
-
-        // Sub-Func: Identify parent of node a in Subset for kurskal's
-        private Node Find(Subset[] subsets, Node vertex, int k, Node[] vertex_dict)
-        {
-            if (subsets[k].Parent != vertex)
-            {
-                subsets[k].Parent = Find(subsets, subsets[k].Parent,
-                                    System.Array.IndexOf(vertex_dict, subsets[k].Parent), vertex_dict);
-            }
-
-            return subsets[k].Parent;
-        }
-
-        // Sub-Func: Union of subsets for kurskal's
-        private void Union(Subset[] subsets, Node x, Node y, Node[] vertex_dict)
-        {
-            Node xroot = Find(subsets, x, System.Array.IndexOf(vertex_dict, x), vertex_dict);
-            Node yroot = Find(subsets, y, System.Array.IndexOf(vertex_dict, y), vertex_dict);
-
-            if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank < subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
-                subsets[System.Array.IndexOf(vertex_dict, xroot)].Parent = yroot;
-            else if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank > subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
-                subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
-            else
-            {
-                subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
-                ++subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank;
-            }
-        }
-
-        // Data Stuture: Subset for kurskal's
-        public struct Subset
-        {
-            public Node Parent { get; set; }
-            public int Rank { get; set; }
-        }
-
-
+       
         // MAIN FUNC: Car Drive
         public int DriveCar(List<Vector3> player_path, CarController player_Car, int player_pathIndex)
         {
@@ -644,35 +315,19 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
 
 
-            if (map != null)
-            {
-                foreach (Edge edge in map.EdgeList)
-                {
-                    //UNCOMMENT THIS TO SEE ALL THE EDGES
-                    /*
-                    Gizmos.color = Color.red;
-                    Gizmos.DrawLine(edge.Source.worldPosition, edge.Destination.worldPosition);
-                    Gizmos.DrawSphere(edge.Source.worldPosition, 2f);
-                    Gizmos.color = Color.green;
-                    Gizmos.DrawSphere(edge.Destination.worldPosition, 2f);
-                    */
-                }
-            }
-
-
             //Show min span tree
-            if (min_tree != null)
+            if (my_tree != null)
                 {
                     Gizmos.color = colors[CarNumber];
                     //Gizmos.color = Color.red;
-                    for (int i = 0; i < min_tree.Length - 1; ++i)
+                    for (int i = 0; i < my_tree.Length - 1; ++i)
                     {
 
-                    if (min_tree[i].Source != null && min_tree[i].Destination != null)
-                        Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                    if (my_tree[i].Source != null && my_tree[i].Destination != null)
+                        Gizmos.DrawLine(my_tree[i].Source.worldPosition + Vector3.up, my_tree[i].Destination.worldPosition + Vector3.up);
                         ;
-                        //Gizmos.DrawSphere(min_tree[i].Source.worldPosition, 5f);
-                        //Gizmos.DrawSphere(min_tree[i].Destination.worldPosition, 2f);
+                        //Gizmos.DrawSphere(my_tree[i].Source.worldPosition, 5f);
+                        //Gizmos.DrawSphere(my_tree[i].Destination.worldPosition, 2f);
 
                     }
                 }

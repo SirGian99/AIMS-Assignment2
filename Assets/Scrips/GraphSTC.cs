@@ -24,7 +24,6 @@ public class GraphSTC
     public GraphSTC(Graph graph, Vector3 start_pos)
     {
         this.start_pos = start_pos;
-        original_graph = graph;
         this.starting_node = graph.getNodeFromPoint(start_pos);
         this.EdgeList = new List<Edge>();
 
