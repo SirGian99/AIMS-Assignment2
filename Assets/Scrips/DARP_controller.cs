@@ -27,7 +27,7 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        naive_assignment();
+        naive_assignment(initial_positions[0]);
         smooth_areas();
 
     }

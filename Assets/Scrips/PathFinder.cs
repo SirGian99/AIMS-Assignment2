@@ -5,6 +5,9 @@ using System;
 
 public class PathFinder : MonoBehaviour
 {
+
+    
+
     public static float[,] headings = new float[,] { { 135f, 90f, 45f }, { 180f, 0f, 0f }, { 225f, 270f, 315f } };
 
     public static void findPath(Graph graph, Vector3 start_position, Vector3 goal_position, float start_heading, bool drone = false)
@@ -414,4 +417,38 @@ public class PathFinder : MonoBehaviour
 
         return to_return;
     }
+
+    public static Orientation getOrientation(Node source, Node destination)
+    {
+        if (source.worldPosition.x == destination.worldPosition.x)
+        {
+            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
+        }
+        if (source.worldPosition.z == destination.worldPosition.z)
+        {
+            return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
+        }
+
+        if (source.worldPosition.x > destination.worldPosition.x)
+        {
+            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DL : Orientation.UL;
+        }
+        else
+        {
+            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DR : Orientation.UR;
+        }
+
+    }
+}
+
+public enum Orientation
+{
+    UR,
+    UL,
+    UU,
+    DD,
+    DL,
+    DR,
+    L,
+    R
 }

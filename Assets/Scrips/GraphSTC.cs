@@ -44,12 +44,19 @@ public class GraphSTC
                         newEdge.Weight = ManhattenDistance(neighbour.worldPosition, start_pos);
                         if (Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) >= 1.9f && Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) <= 2.5f)
                         {
-                            //newEdge.Weight *= 100;
                             newEdge.Weight *= 100;
                             Debug.Log("QUI Current node: " + node.worldPosition + "neigh node: " + neighbour.worldPosition);
                         }else if (newEdge.Source.worldPosition.x != newEdge.Destination.worldPosition.x && newEdge.Source.worldPosition.z != newEdge.Destination.worldPosition.z)
                         {
                             newEdge.Weight *= 50;
+                        }
+                        if(newEdge.Source.parent != null && ( (newEdge.Destination.worldPosition.x == newEdge.Source.parent.worldPosition.x) || (newEdge.Destination.worldPosition.z == newEdge.Source.parent.worldPosition.z)))
+                        {
+                            newEdge.Weight *= 100; //means you are zigzagging, we don't want that. Nevers enters here
+                        }
+                        if(newEdge.Source.is_supernode && newEdge.Destination.is_supernode)
+                        {
+                            newEdge.Weight /= 50;
                         }
                         this.EdgeList.Add(newEdge);
                     }

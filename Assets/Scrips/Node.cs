@@ -35,6 +35,7 @@ public class Node
 
     public List<Node> neighbours;
     public bool is_supernode = false;
+    public bool is_main_supernode = false;
 
 
     public Node(int i, int j, float x_pos, float z_pos, bool walkable=true)

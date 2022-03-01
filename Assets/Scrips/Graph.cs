@@ -227,7 +227,7 @@ public class Graph{
     public List<Node> getNeighbours(Node node, bool print=false, bool check_vehicle = false, bool supernodes = false)
     {
         List<Node> toReturn = new List<Node>();
-        int supernode_addition = supernodes ? 1:0; 
+        int supernode_addition = supernodes && node.is_supernode? 1:0; 
         for(int i = -1; i<2+supernode_addition; i++)
         {
             int current_i = node.i + i;
@@ -242,8 +242,24 @@ public class Graph{
                     continue;
                 if (nodes[current_i, current_j] == node || toReturn.Contains(nodes[current_i, current_j]))
                     continue;
-                if (current_i != node.i && current_j != node.j)///TODO TODO TODO REMOVE
+                if (supernodes && node.is_supernode && current_i != node.i && current_j != node.j && nodes[current_i, current_j] != null && (nodes[current_i, current_j].is_supernode)) 
+                {
+                    Debug.Log("Nodo [" + node.i + "," + node.j + "] skippo il supernodo ["  + current_i + "," + current_j);
                     continue;
+                }
+
+                if(supernodes && node.is_supernode)
+                {
+                    if (i == -1 && j == -1)
+                        continue;
+                    if (i == -1 && j == 2)
+                        continue;
+                    if (i == 2 && j == -1)
+                        continue;
+                    if (i == 2 && j == 2)
+                        continue;
+                }
+
                 toReturn.Add(nodes[current_i, current_j]);
 
 
@@ -301,11 +317,14 @@ public class Graph{
 
             }
         }
-
+        bool has_merged = false;
         for(int i = 0; i<graph.nodes.GetLength(0)-1; i++)
         {
+            //has_merged = false;
+
             for (int j = 0; j < graph.nodes.GetLength(1)-1; j++)
             {
+                //has_merged = false;
                 Node node = graph.nodes[i, j];
                 if (node != null && !node.is_supernode && node.walkable)
                 {
@@ -328,6 +347,7 @@ public class Graph{
                         old_graph.nodes[i, j + 1] = node;
                         old_graph.nodes[i + 1, j + 1] = node;
                         node.neighbours = null;
+                        //has_merged = true;
                         
 
 
@@ -345,7 +365,12 @@ public class Graph{
 
 
                 }
+
+                if (has_merged)
+                    j++;
             }
+            if (has_merged)
+                i++;
         }
 
         foreach (Node node in graph.nodes)
@@ -369,6 +394,19 @@ public class Graph{
                 old_graph.nodes[n.i + 1, n.j] = null;
                 old_graph.nodes[n.i, n.j + 1] = null;
                 old_graph.nodes[n.i + 1, n.j + 1] = null;
+            }
+
+            if (n != null)
+            {
+                for (int k=0; k < n.neighbours.Count; k++)
+                {
+                    Node neigh = n.neighbours[k];
+                    if (neigh != null && !neigh.neighbours.Contains(n))
+                    {
+                        Debug.Log("REMOVING NODE [" + neigh.i + "," + neigh.j + "FROM NODE [" + n.i + "," + n.j);
+                        n.neighbours.Remove(neigh);
+                    }
+                }
             }
         }
 

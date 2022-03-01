@@ -20,6 +20,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public GameObject terrain_manager_game_object;
         TerrainManager terrain_manager;
         public Graph graph;
+        public Graph original_graph;
         public GraphSTC map;
         public Graph subgraph;
         public DARP_controller darp;
@@ -98,9 +99,10 @@ namespace UnityStandardAssets.Vehicles.Car
             //i want x_unit and z_unit to be √2r, where r is the range of the gun.
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
+            original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
             //Debug.Log("Walkable nodes: " + graph.walkable_nodes);
             //Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
-            
+
 
             // Get Array of Friends and Eniemies
             friends = GameObject.FindGameObjectsWithTag("Player");
@@ -143,7 +145,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
         private void FixedUpdate()
         {
-            
+            /*
             enemies = GameObject.FindGameObjectsWithTag("Enemy");
 
             // this is how you access information about the terrain
@@ -171,7 +173,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log("Path completed for Player " + time);
 
             }
-            
+            */
 
         }
 
@@ -180,48 +182,96 @@ namespace UnityStandardAssets.Vehicles.Car
         public List<Vector3> CreateDronePath(GraphSTC graph)
         {
             Edge[] MinSTC = STC(graph);
-            List<Vector3> path = new List<Vector3>();
-            path = ComputePath(graph, MinSTC, graph.start_pos);
+            List<Vector3> path = null;
+            //path = ComputePath(graph, MinSTC, graph.start_pos);
 
             return path;
         }
 
         // Sub-Func: Compute path 
-        private List<Vector3> ComputePath(GraphSTC graph, Edge[] EdgeArray, Vector3 starting_position)
+        private List<Vector3> ComputePath(GraphSTC graphSTC, Edge[] EdgeArray, Vector3 starting_position)
         {
             List<Vector3> path = new List<Vector3>();
             Vector3 waypoint;
             Node current_node;
-            if (graph.starting_node != null)
+            if (graphSTC.starting_node != null)
             {
-                current_node = graph.starting_node;
+                current_node = graphSTC.starting_node;
             }
             else
             {
-                current_node = graph.get_closest_node(starting_position);
+
+                int i = terrain_manager.myInfo.get_i_index(starting_position.x);
+                int j = terrain_manager.myInfo.get_j_index(starting_position.z);
+
+                current_node = graph.nodes[i, j];
+                if(current_node == null)
+                {
+                    bool found = false;
+                    for(int ii = -1; ii<2 && !found; ii++)
+                    {
+                        for(int jj = -1; jj<2 && !found; jj++)
+                        {
+                            Node n = graph.nodes[ii, jj];
+                            if(n!= null && n.is_supernode)
+                            {
+                                foreach(Node merged in n.merged_nodes)
+                                {
+                                    if (merged.i == i && merged.j == j)
+                                    {
+                                        current_node = n;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                //current_node = graphSTC.get_closest_node(starting_position);
                
             }
             path.Add(current_node.worldPosition);
             current_node.visited = true;
-            for(int i = 0; i < graph.VerticesCount;)
+
+            
+
+            for(int i = 0; i < graphSTC.VerticesCount;)
             {
-                Node right = current_node.right_child;
-                Node left = current_node.left_child;
-                if(right != null && !right.visited)
+                Node next_node;
+
+                if(current_node.children.Count > 1)
                 {
-                    path.Add(right.worldPosition);
-                    right.visited = true;
-                    current_node = right;
-                    i++;
-                }
-                else if(left != null && !left.visited)
+
+                }else if(current_node.children.Count == 0)
                 {
-                    path.Add(left.worldPosition);
-                    left.visited = true;
-                    current_node = left;
-                    i++;
+
                 }
-                else if(current_node.parent != null)
+                else
+                {
+                    next_node = current_node.children[0];
+                    Vector3 next_position = next_node.worldPosition;
+                    Vector3 direction = (next_position - path[path.Count - 1]).normalized;
+                    Vector3 slack = (Quaternion.AngleAxis(-90, Vector3.right) * direction).normalized;
+                    Debug.Log("Direction : " + direction + " Perpendicular: " + slack);
+
+                    if (next_node.is_supernode)
+                    {
+                        next_position += new Vector3(slack.x * graph.x_unit / 2, 0, slack.z * graph.z_unit / 2); //add slack from the tree
+                        Vector3 next_position_1 = next_position + new Vector3(direction.x * graph.x_unit / 2, 0, direction.z * graph.z_unit / 2);
+                        Vector3 next_position_2 = next_position - new Vector3(direction.x * graph.x_unit / 2, 0, direction.z * graph.z_unit / 2);
+                        path.Add(next_position_1);
+                        path.Add(next_position_2);
+                    }
+                    else
+                    {
+                        path.Add(next_position);
+                    }
+                }
+
+                
+                if(current_node.parent != null)
                 {
                     path.Add(current_node.parent.worldPosition);
                     current_node = current_node.parent;
@@ -417,6 +467,13 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     result[e++] = nextEdge;
                     nextEdge.Destination.parent = nextEdge.Source;
+                    if(nextEdge.Source.children == null)
+                    {
+                        nextEdge.Source.children = new List<Node>();
+                    }
+                    nextEdge.Source.children.Add(nextEdge.Destination);
+
+                    /*
                     if (nextEdge.Source.parent == null || nextEdge.Source.parent.i == nextEdge.Destination.i || nextEdge.Source.parent.j == nextEdge.Destination.j)
                     {
                         if (nextEdge.Source.right_child != null)
@@ -427,6 +484,7 @@ namespace UnityStandardAssets.Vehicles.Car
                         {
                             nextEdge.Source.right_child = nextEdge.Destination;
                         }
+                        
                     }
                     else
                     {
@@ -439,6 +497,8 @@ namespace UnityStandardAssets.Vehicles.Car
                             nextEdge.Source.left_child = nextEdge.Destination;
                         }
                     }
+                    */
+
                     //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
                     Union(subsets, x, y, VertexArray);
                 }
