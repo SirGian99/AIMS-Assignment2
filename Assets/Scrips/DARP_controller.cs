@@ -2,6 +2,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+
+// Data Stuture: Subset for kurskal's
+public struct Subset
+{
+    public Node Parent { get; set; }
+    public int Rank { get; set; }
+}
+
+
+
+
 public class DARP_controller
 {
     public int n_agents;
@@ -12,9 +23,15 @@ public class DARP_controller
     public float[] m;
     public Graph graph;
     public float fair_share;
+    public int[] components;
+    public float  h1, h2, best_h, best_h1;
+    public int n_iter, subcomponents;
+    public List<List<Vector3>> all_paths;
+    public GraphSTC[] subgraphs;
 
 
-    public DARP_controller(int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance)
+
+    public DARP_controller(TerrainInfo terrainInfo, int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance)
     {
         this.n_agents = n_agents;
         this.initial_positions = initial_positions;
@@ -27,8 +44,94 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        naive_assignment(initial_positions[0]);
-        smooth_areas();
+        //
+
+        this.components = new int[n_agents];
+        this.h1 = 1f;
+        this.h2 = 1.5f;
+        this.best_h = 10f * n_agents;
+        this.best_h1 = n_agents;
+        this.n_iter = 1;
+
+        // Find ideal graph
+        for (int i = 0; i < n_iter; i++)
+        {
+            // 1. assign to sub-graphs
+            naive_assignment(); // HOW TO CHANGE ANGLE FOR REASSIGNING?
+            smooth_areas();
+
+            int x1 = 0;
+            int x2 = 0;
+            float x = 0;
+            for (int agent = 1; agent <= n_agents; agent++)
+            {
+                // 2. create sub-graphs 
+                Graph sub = Graph.CreateSubGraph(graph, agent, terrainInfo);
+                GraphSTC subSTC = new GraphSTC(sub, initial_positions[agent - 1]);
+
+                // 3. heuristic: Sub-graphs has minimum disconnected components
+                x1 = x1 + GraphComponents(subSTC);
+
+                // 4. heuristic: minimum distance to grid from agents starting point
+                x2 = x2 + 1; //MUST EDIT!!!
+            }
+
+            x = h1 * x1 + h2 * x2;
+            // 5. Heuristic score evalulate
+            if(x < best_h)//MUST EDIT!!!
+            {
+                best_h = x;
+                subcomponents = x1;
+                // store final assignments - //EDIT AFTER QUERY
+
+                //store final commponent count
+                for (int agent = 1; agent <= n_agents; agent++)
+                {
+                    Graph sub = Graph.CreateSubGraph(graph, agent, terrainInfo);
+                    GraphSTC subSTC = new GraphSTC(sub, initial_positions[agent - 1]);
+                    components[agent -1] = GraphComponents(subSTC);
+
+                }
+            }
+        }
+
+
+        //Merge and Split graphs if necessary
+        while(subcomponents > n_agents)
+        {
+            //check all graphs
+            for (int agent = 1; agent <= n_agents; agent++)
+            {
+                Graph sub = Graph.CreateSubGraph(graph, agent, terrainInfo);
+                GraphSTC subSTC = new GraphSTC(sub, initial_positions[agent - 1]);
+
+                //graph is disconnected
+                if (GraphComponents(subSTC)!=1)
+                {
+                    //Get sub-graph
+                    List<Node> VertexList = SpiltGraph(subSTC, true);
+                    //Search neighbour index
+
+                    //Re-assign indices
+
+                    //
+                    subcomponents = subcomponents - 1;
+                }
+
+            }
+        }
+
+        //Get paths for all agents
+        for (int agent = 1; agent <= n_agents; agent++)
+        {
+            Graph sub = Graph.CreateSubGraph(graph, agent, terrainInfo);
+            GraphSTC subSTC = new GraphSTC(sub, initial_positions[agent - 1]);
+            subgraphs[agent - 1] = subSTC;
+            Edge[] MinSTC = STC(subSTC);
+            List<Vector3> path = new List<Vector3>();
+            path = ComputePath(subSTC, MinSTC, subSTC.start_pos);
+            all_paths[agent - 1] = path;
+        }
 
     }
 
@@ -222,4 +325,288 @@ public class DARP_controller
             }
         }
     }
+
+    // Sub-Func: Compute path 
+    private List<Vector3> ComputePath(GraphSTC graph, Edge[] EdgeArray, Vector3 starting_position)
+    {
+        List<Vector3> path = new List<Vector3>();
+        Vector3 waypoint;
+        Node current_node;
+        if (graph.starting_node != null)
+        {
+            current_node = graph.starting_node;
+        }
+        else
+        {
+            current_node = graph.get_closest_node(starting_position);
+
+        }
+        path.Add(current_node.worldPosition);
+        current_node.visited = true;
+        for (int i = 0; i < graph.VerticesCount;)
+        {
+            Node right = current_node.right_child;
+            Node left = current_node.left_child;
+            if (right != null && !right.visited)
+            {
+                path.Add(right.worldPosition);
+                right.visited = true;
+                current_node = right;
+                i++;
+            }
+            else if (left != null && !left.visited)
+            {
+                path.Add(left.worldPosition);
+                left.visited = true;
+                current_node = left;
+                i++;
+            }
+            else if (current_node.parent != null)
+            {
+                path.Add(current_node.parent.worldPosition);
+                current_node = current_node.parent;
+
+            }
+            else
+            {
+                break;
+            }
+        }
+        /*for (int i = 0; i < EdgeArray.Length-3; i++)
+        {
+
+            waypoint = EdgeArray[i].Destination.worldPosition;
+            //Debug.Log(i+ "waypoint " + waypoint + EdgeArray.Length);
+            path.Add(waypoint);
+
+        }
+        */
+
+
+        return path;
+    }
+
+
+    // Sub-Func: Kurskal Algorithm to find number of compoenets in graph
+    public int GraphComponents(GraphSTC graph)
+    {
+        int verticesCount = graph.VerticesCount;
+        Node[] VertexArray = graph.VertexArray;
+        int k = 0;
+        int e = 0;
+        int subset_count = 0;
+
+        // Sort edges by cost- all costs are same
+        graph.EdgeList.Sort((e1, e2) => e1.Weight.CompareTo(e2.Weight));
+
+        // Create each vertex as subsets
+        Subset[] subsets = new Subset[verticesCount];
+        Subset sub;
+        for (int v = 0; v < verticesCount; ++v)
+        {
+            sub = new Subset();
+            sub.Parent = VertexArray[v];
+            sub.Rank = 0;
+            subsets[v] = sub;
+        }
+
+        // build min tree
+        while (e < verticesCount - 1)
+        {
+            Edge nextEdge = graph.EdgeList[k];
+            Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
+            Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
+
+            if (x != y)
+            {
+                e++;
+                //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
+                Union(subsets, x, y, VertexArray);
+            }
+            k++;
+
+            if (k >= graph.EdgesCount)
+            {
+                //Debug.Log("Car " + CarNumber + " TotalEdges, k: " + graph.EdgesCount + " " + k + " MinEdges,e"+ (verticesCount-1) + " " + e  + " " );
+                break;
+            }
+        }
+        subset_count = verticesCount - e;
+
+        return subset_count;
+    }
+
+    // Sub-Func: Kurskal Algorithm to sub-graph
+    public List<Node> SpiltGraph(GraphSTC graph, bool smallest)
+    {
+        int verticesCount = graph.VerticesCount;
+        List<Node> result = new List<Node>();
+        Node[] VertexArray = graph.VertexArray;
+        int k = 0;
+        int e = 0;
+        int subset_count = 0;
+
+        // Sort edges by cost- all costs are same
+        graph.EdgeList.Sort((e1, e2) => e1.Weight.CompareTo(e2.Weight));
+
+        // Create each vertex as subsets
+        Subset[] subsets = new Subset[verticesCount];
+        Subset sub;
+        for (int v = 0; v < verticesCount; ++v)
+        {
+            sub = new Subset();
+            sub.Parent = VertexArray[v];
+            sub.Rank = 0;
+            subsets[v] = sub;
+        }
+
+        // build min tree
+        while (e < verticesCount - 1)
+        {
+            Edge nextEdge = graph.EdgeList[k];
+            Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
+            Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
+
+            if (x != y)
+            {
+                e++;
+                Union(subsets, x, y, VertexArray);
+            }
+            k++;
+
+            if (k >= graph.EdgesCount)
+            {
+                break;
+            }
+        }
+        subset_count = verticesCount - e;
+
+
+        if (subset_count == 2)
+        {
+            //CASE: Two Subsets are created
+            int set1 = subsets[0].Rank;
+            List<Node> Vertex_set1 = new List<Node>();
+            List<Node> Vertex_set2 = new List<Node>();
+            for (int r = 0; r < subsets.Length; r++)
+            {
+                if (subsets[r].Rank == set1)
+                {
+                    Vertex_set1.Add(subsets[r].Parent);
+                }
+                else
+                {
+                    Vertex_set2.Add(subsets[r].Parent);
+                }
+            }
+
+            if (smallest == true)
+            {
+                result = Vertex_set1.Count < Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
+            }
+            else
+            {
+                result = Vertex_set1.Count > Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
+            }
+        }
+
+
+        return result;
+    }
+
+    // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
+    public Edge[] STC(GraphSTC graph)
+    {
+        int verticesCount = graph.VerticesCount;
+        Edge[] result = new Edge[verticesCount];
+        Node[] VertexArray = graph.VertexArray;
+        int k = 0;
+        int e = 0;
+
+        // Sort edges by cost- all costs are same
+        graph.EdgeList.Sort((e1, e2) => e1.Weight.CompareTo(e2.Weight));
+
+        // Create each vertex as subsets
+        Subset[] subsets = new Subset[verticesCount];
+        Subset sub;
+        for (int v = 0; v < verticesCount; ++v)
+        {
+            sub = new Subset();
+            sub.Parent = VertexArray[v];
+            sub.Rank = 0;
+            subsets[v] = sub;
+        }
+
+        // build min tree
+        while (e < verticesCount - 1)
+        {
+            Edge nextEdge = graph.EdgeList[k];
+            Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
+            Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
+
+            if (x != y)
+            {
+                result[e++] = nextEdge;
+                nextEdge.Destination.parent = nextEdge.Source;
+                if (nextEdge.Source.parent == null || nextEdge.Source.parent.i == nextEdge.Destination.i || nextEdge.Source.parent.j == nextEdge.Destination.j)
+                {
+                    if (nextEdge.Source.right_child != null)
+                    {
+                        Debug.Log("ERROR RIGHT!!!");
+                    }
+                    else
+                    {
+                        nextEdge.Source.right_child = nextEdge.Destination;
+                    }
+                }
+                else
+                {
+                    if (nextEdge.Source.left_child != null)
+                    {
+                        Debug.Log("ERROR LEFT!!!");
+                    }
+                    else
+                    {
+                        nextEdge.Source.left_child = nextEdge.Destination;
+                    }
+                }
+                //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
+                Union(subsets, x, y, VertexArray);
+            }
+            k++;
+        }
+
+        return result;
+    }
+
+    // Sub-Func: Identify parent of node a in Subset for kurskal's
+    private Node Find(Subset[] subsets, Node vertex, int k, Node[] vertex_dict)
+    {
+        if (subsets[k].Parent != vertex)
+        {
+            subsets[k].Parent = Find(subsets, subsets[k].Parent,
+                                System.Array.IndexOf(vertex_dict, subsets[k].Parent), vertex_dict);
+        }
+
+        return subsets[k].Parent;
+    }
+
+    // Sub-Func: Union of subsets for kurskal's
+    private void Union(Subset[] subsets, Node x, Node y, Node[] vertex_dict)
+    {
+        Node xroot = Find(subsets, x, System.Array.IndexOf(vertex_dict, x), vertex_dict);
+        Node yroot = Find(subsets, y, System.Array.IndexOf(vertex_dict, y), vertex_dict);
+
+        if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank < subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
+            subsets[System.Array.IndexOf(vertex_dict, xroot)].Parent = yroot;
+        else if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank > subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
+            subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
+        else
+        {
+            subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
+            ++subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank;
+        }
+    }
+
+
 }

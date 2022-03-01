@@ -38,9 +38,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private Vector3 start_pos, goal_pos;
         private int path_index;
         private List<Vector3> my_path;
-
-        //Temp
-        private Edge[] min_tree;
+        private Edge[] my_tree;
 
 
         private void Start()
@@ -122,23 +120,10 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             // Plan your path here
-            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
-            subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
-            map = new GraphSTC(subgraph, start_pos);
-            Debug.Log("Car " + CarNumber + " Compoents: " + GraphComponents(map));
-            if(GraphComponents(map)!=1)
-            {
-                List<Node> VertexList = SpiltGraph(map, true);
-                //Search neighbour index
-
-                //Merge Graph
-
-            }
-            
+            darp = new DARP_controller(terrain_manager.myInfo, friends.Length, initial_positions, graph, 0.0004f, 100);
             my_path = new List<Vector3>();
-            my_path = CreateDronePath(map);
-            min_tree = STC(map);
-            graph = subgraph;
+            my_path = darp.all_paths[CarNumber - 1];
+            my_tree = darp.STC(darp.subgraphs[CarNumber - 1]);
 
         }
 
@@ -551,6 +536,7 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
+       
         // MAIN FUNC: Car Drive
         public int DriveCar(List<Vector3> player_path, CarController player_Car, int player_pathIndex)
         {
@@ -704,35 +690,19 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
 
 
-            if (map != null)
-            {
-                foreach (Edge edge in map.EdgeList)
-                {
-                    //UNCOMMENT THIS TO SEE ALL THE EDGES
-                    /*
-                    Gizmos.color = Color.red;
-                    Gizmos.DrawLine(edge.Source.worldPosition, edge.Destination.worldPosition);
-                    Gizmos.DrawSphere(edge.Source.worldPosition, 2f);
-                    Gizmos.color = Color.green;
-                    Gizmos.DrawSphere(edge.Destination.worldPosition, 2f);
-                    */
-                }
-            }
-
-
             //Show min span tree
-            if (min_tree != null)
+            if (my_tree != null)
                 {
                     Gizmos.color = colors[CarNumber];
                     //Gizmos.color = Color.red;
-                    for (int i = 0; i < min_tree.Length - 1; ++i)
+                    for (int i = 0; i < my_tree.Length - 1; ++i)
                     {
 
-                    if (min_tree[i].Source != null && min_tree[i].Destination != null)
-                        Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                    if (my_tree[i].Source != null && my_tree[i].Destination != null)
+                        Gizmos.DrawLine(my_tree[i].Source.worldPosition + Vector3.up, my_tree[i].Destination.worldPosition + Vector3.up);
                         ;
-                        //Gizmos.DrawSphere(min_tree[i].Source.worldPosition, 5f);
-                        //Gizmos.DrawSphere(min_tree[i].Destination.worldPosition, 2f);
+                        //Gizmos.DrawSphere(my_tree[i].Source.worldPosition, 5f);
+                        //Gizmos.DrawSphere(my_tree[i].Destination.worldPosition, 2f);
 
                     }
                 }
