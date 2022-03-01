@@ -21,7 +21,6 @@ public class Graph{
     public int non_walkable_nodes = 0;
     public Vector3 centre;
 
-    public int x_scale, z_scale; // created for darp usage
     public int[,] graphTraversabilityMatrix;
         
     public Node[,] nodes;
@@ -199,7 +198,7 @@ public class Graph{
         //    {
         //        VertexList.Add(node);
         //    }
-
+            
         //}
         //graph.EdgesCount = graph.EdgeList.Count;
         //graph.VerticesCount = VertexList.Count;
@@ -208,10 +207,6 @@ public class Graph{
         //{
         //    graph.VertexArray[v] = VertexList[v];
         //}
-
-        //darp
-        graph.x_scale = x_N;
-        graph.z_scale = z_N;
 
         return graph;
     }
@@ -291,7 +286,7 @@ public class Graph{
 
 
 
-    public static Graph CreateSubGraph(Graph old_graph, int car_index, TerrainInfo terrainInfo)
+    public static Graph CreateSubGraph(Graph old_graph, int car_index, TerrainInfo terrainInfo, int x_N, int z_N)
     {
         if (terrainInfo == null)
         {
@@ -299,26 +294,22 @@ public class Graph{
             return null;
         }
 
-        if (old_graph.x_scale <= 0 || old_graph.z_scale <= 0)
+        if (x_N <= 0 || z_N <= 0)
         {
             //Debug.Log("x_N or z_N is less than or equal to 0");
             return null;
         }
 
         //Debug.Log("myFunction");
-        Graph graph = new Graph(old_graph.x_scale, old_graph.z_scale, terrainInfo.x_low, terrainInfo.x_high, terrainInfo.z_low, terrainInfo.z_high);
+        Graph graph = new Graph(x_N, z_N, terrainInfo.x_low, terrainInfo.x_high, terrainInfo.z_low, terrainInfo.z_high);
         float x_len = terrainInfo.x_high - terrainInfo.x_low;
         float z_len = terrainInfo.z_high - terrainInfo.z_low;
-        float x_unit = x_len / old_graph.x_scale;
-        float z_unit = z_len / old_graph.z_scale;
+        float x_unit = x_len / x_N;
+        float z_unit = z_len / z_N;
         graph.start_node = new Node((int)(terrainInfo.start_pos[0] / x_unit), (int)(terrainInfo.start_pos[2] / z_unit), terrainInfo.start_pos[0], terrainInfo.start_pos[2]);
         graph.goal_node = new Node((int)(terrainInfo.goal_pos[0] / x_unit), (int)(terrainInfo.goal_pos[2] / z_unit), terrainInfo.goal_pos[0], terrainInfo.goal_pos[2]);
-        //darp
-        graph.x_scale = old_graph.x_scale;
-        graph.z_scale = old_graph.z_scale;
 
-
-        foreach (Node node in old_graph.nodes)
+        foreach(Node node in old_graph.nodes)
         {
             if(node.assigned_veichle == car_index)
             {
@@ -422,7 +413,27 @@ public class Graph{
         return graph;
     }
 
+    public static Graph MergeSubGraph(Graph graph, int car_index, List<Node> VertexList)
+    {
+        foreach (Node node in VertexList)
+        {
+            if (node.assigned_veichle == car_index)
+            {
+                graph.nodes[node.i, node.j] = node;
 
+            }
+        }
+
+        foreach (Node node in graph.nodes)
+        {
+            if (node != null)
+            {
+                node.neighbours = graph.getNeighbours(node, check_vehicle: true);
+            }
+        }
+
+        return graph;
+    }
 
 
 
