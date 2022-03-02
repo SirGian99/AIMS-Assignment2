@@ -189,11 +189,12 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
         // Sub-Func: Compute path 
-        private List<Vector3> ComputePath(GraphSTC graphSTC, Edge[] EdgeArray, Vector3 starting_position)
+        private List<Vector3> ComputePath(GraphSTC graphSTC, Edge[] EdgeArray, Vector3 starting_position, Orientation initial_orientation=Orientation.UU)
         {
             List<Vector3> path = new List<Vector3>();
             Vector3 waypoint;
             Node current_node;
+            Orientation arriving_orientation = initial_orientation;
             if (graphSTC.starting_node != null)
             {
                 current_node = graphSTC.starting_node;
@@ -234,10 +235,98 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             path.Add(current_node.worldPosition);
             current_node.visited = true;
+            Node next_node = current_node; //TODOAssume we get this someway throug a "GetNextNode" function
 
-            
+            for (int i = 0; i < graphSTC.VerticesCount;)
+            {
 
-            for(int i = 0; i < graphSTC.VerticesCount;)
+                Direction direction = PathFinder.get_direction(arriving_orientation, current_node, next_node);
+                if (next_node.is_supernode)
+                {
+                    switch (direction)
+                    {
+                        case Direction.F:
+                            switch (initial_orientation)
+                            {
+                                case Orientation.UU:
+                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                    break;
+                                case Orientation.DD:
+                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                    break;
+                                case Orientation.R:
+                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                    break;
+                                case Orientation.L:
+                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                    break;
+                            }
+                            break;
+                        case Direction.TL:
+                            switch (initial_orientation)
+                            {
+                                case Orientation.UU:
+                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                    break;
+                                case Orientation.DD:
+                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                    break;
+                                case Orientation.R:
+                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                    break;
+                                case Orientation.L:
+                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                    break;
+                            }
+                            break;
+                        case Direction.TR:
+                            switch (initial_orientation)
+                            {
+                                case Orientation.UU:
+                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                    break;
+                                case Orientation.DD:
+                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                    break;
+                                case Orientation.R:
+                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                    break;
+                                case Orientation.L:
+                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                    break;
+                            }
+                            break;
+                        default:
+                            throw new Exception("GOT DIRECTION ERROR");
+                    }
+
+                }
+                else
+                {
+                    path.Add(next_node.worldPosition);
+                }
+                next_node.visited = true;
+
+
+                arriving_orientation = new Orientation; //how do we compute this?
+
+            }
+
+                //TODO The next for is from a previous implementation
+
+                for (int i = 0; i < graphSTC.VerticesCount;)
             {
                 Node next_node;
 
@@ -499,321 +588,6 @@ namespace UnityStandardAssets.Vehicles.Car
                     }
                     */
 
-                    //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
-                    Union(subsets, x, y, VertexArray);
-                }
-                k++;
-                //Debug.Log("Car " + CarNumber + " k,e: " + k + " " + e + " " + graph.EdgesCount);
-                //if (k >= graph.EdgesCount)
-                //{
-                //    Debug.Log("STILL ENTERING HERE: "  + CarNumber);
-                //    break;
-                //}
-            }
-
-            return result;
-        }
-
-        // Sub-Func: Identify parent of node a in Subset for kurskal's
-        private Node Find(Subset[] subsets, Node vertex, int k, Node[] vertex_dict)
-        {
-            if (subsets[k].Parent != vertex)
-            {
-                subsets[k].Parent = Find(subsets, subsets[k].Parent,
-                                    System.Array.IndexOf(vertex_dict, subsets[k].Parent), vertex_dict);
-            }
-
-            return subsets[k].Parent;
-        }
-
-        // Sub-Func: Union of subsets for kurskal's
-        private void Union(Subset[] subsets, Node x, Node y, Node[] vertex_dict)
-        {
-            Node xroot = Find(subsets, x, System.Array.IndexOf(vertex_dict, x), vertex_dict);
-            Node yroot = Find(subsets, y, System.Array.IndexOf(vertex_dict, y), vertex_dict);
-
-            if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank < subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
-                subsets[System.Array.IndexOf(vertex_dict, xroot)].Parent = yroot;
-            else if (subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank > subsets[System.Array.IndexOf(vertex_dict, yroot)].Rank)
-                subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
-            else
-            {
-                subsets[System.Array.IndexOf(vertex_dict, yroot)].Parent = xroot;
-                ++subsets[System.Array.IndexOf(vertex_dict, xroot)].Rank;
-            }
-        }
-
-        // Data Stuture: Subset for kurskal's
-        public struct Subset
-        {
-            public Node Parent { get; set; }
-            public int Rank { get; set; }
-        }
-
-
-        // MAIN FUNC: Divide and conquer
-        public List<Vector3> CreateDronePath(GraphSTC graph)
-        {
-            Edge[] MinSTC = STC(graph);
-            List<Vector3> path = new List<Vector3>();
-            path = ComputePath(graph, MinSTC, graph.start_pos);
-
-            return path;
-        }
-
-        // Sub-Func: Compute path 
-        private List<Vector3> ComputePath(GraphSTC graph, Edge[] EdgeArray, Vector3 starting_position)
-        {
-            List<Vector3> path = new List<Vector3>();
-            Vector3 waypoint;
-            Node current_node;
-            if (graph.starting_node != null)
-            {
-                current_node = graph.starting_node;
-            }
-            else
-            {
-                current_node = graph.get_closest_node(starting_position);
-               
-            }
-            path.Add(current_node.worldPosition);
-            current_node.visited = true;
-            for(int i = 0; i < graph.VerticesCount;)
-            {
-                Node right = current_node.right_child;
-                Node left = current_node.left_child;
-                if(right != null && !right.visited)
-                {
-                    path.Add(right.worldPosition);
-                    right.visited = true;
-                    current_node = right;
-                    i++;
-                }
-                else if(left != null && !left.visited)
-                {
-                    path.Add(left.worldPosition);
-                    left.visited = true;
-                    current_node = left;
-                    i++;
-                }
-                else if(current_node.parent != null)
-                {
-                    path.Add(current_node.parent.worldPosition);
-                    current_node = current_node.parent;
-                    
-                }
-                else
-                {
-                    break;
-                }
-            }
-            /*for (int i = 0; i < EdgeArray.Length-3; i++)
-            {
-               
-                waypoint = EdgeArray[i].Destination.worldPosition;
-                //Debug.Log(i+ "waypoint " + waypoint + EdgeArray.Length);
-                path.Add(waypoint);
-                
-            }
-            */
-
-
-            return path;
-        }
-
-
-
-
-        // MAIN FUNC: Separate terrain into different areas
-
-        // Sub-Func: Kurskal Algorithm to find number of compoenets in graph
-        public int GraphComponents(GraphSTC graph)
-        {
-            int verticesCount = graph.VerticesCount;
-            Node[] VertexArray = graph.VertexArray;
-            int k = 0;
-            int e = 0;
-            int subset_count = 0;
-
-            // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
-
-            // Create each vertex as subsets
-            Subset[] subsets = new Subset[verticesCount];
-            Subset sub;
-            for (int v = 0; v < verticesCount; ++v)
-            {
-                sub = new Subset();
-                sub.Parent = VertexArray[v];
-                sub.Rank = 0;
-                subsets[v] = sub;
-            }
-
-            // build min tree
-            while (e < verticesCount - 1)
-            {
-                Edge nextEdge = graph.EdgeList[k];
-                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
-                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
-
-                if (x != y)
-                {
-                    e++;
-                    //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
-                    Union(subsets, x, y, VertexArray);
-                }
-                k++;
-                
-                if (k >= graph.EdgesCount)
-                {
-                    //Debug.Log("Car " + CarNumber + " TotalEdges, k: " + graph.EdgesCount + " " + k + " MinEdges,e"+ (verticesCount-1) + " " + e  + " " );
-                    break;
-                }
-            }
-            subset_count = verticesCount - e;
-
-            return subset_count;
-        }
-
-        // Sub-Func: Kurskal Algorithm to sub-graph
-        public List<Node> SpiltGraph(GraphSTC graph, Boolean smallest)
-        {
-            int verticesCount = graph.VerticesCount;
-            List<Node> result = new List<Node>();
-            Node[] VertexArray = graph.VertexArray;
-            int k = 0;
-            int e = 0;
-            int subset_count = 0;
-
-            // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
-
-            // Create each vertex as subsets
-            Subset[] subsets = new Subset[verticesCount];
-            Subset sub;
-            for (int v = 0; v < verticesCount; ++v)
-            {
-                sub = new Subset();
-                sub.Parent = VertexArray[v];
-                sub.Rank = 0;
-                subsets[v] = sub;
-            }
-
-            // build min tree
-            while (e < verticesCount - 1)
-            {
-                Edge nextEdge = graph.EdgeList[k];
-                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
-                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
-
-                if (x != y)
-                {
-                    e++;
-                    Union(subsets, x, y, VertexArray);
-                }
-                k++;
-
-                if (k >= graph.EdgesCount)
-                {
-                    break;
-                }
-            }
-            subset_count = verticesCount - e;
-
-
-            if (subset_count == 2)
-            {
-                //CASE: Two Subsets are created
-                int set1 = subsets[0].Rank;
-                List<Node> Vertex_set1 = new List<Node>();
-                List<Node> Vertex_set2 = new List<Node>();
-                for (int r = 0; r < subsets.Length; r++)
-                {
-                    if (subsets[r].Rank == set1)
-                    {
-                        Vertex_set1.Add(subsets[r].Parent);
-                    }
-                    else
-                    {
-                        Vertex_set2.Add(subsets[r].Parent);
-                    }
-                }
-                
-                if (smallest == true)
-                {
-                    result = Vertex_set1.Count < Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
-                }
-                else
-                {
-                   result = Vertex_set1.Count > Vertex_set2.Count ? Vertex_set1 : Vertex_set2;
-                }
-            }
-            
-
-            return result;
-        }
-
-        // Sub-Func: Find Closest neighbour
-
-
-
-
-        // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
-        public Edge[] STC(GraphSTC graph)
-        {
-            int verticesCount = graph.VerticesCount;
-            Edge[] result = new Edge[verticesCount];
-            Node[] VertexArray = graph.VertexArray;
-            int k = 0;
-            int e = 0;
-
-            // Sort edges by cost- all costs are same
-            graph.EdgeList.Sort((e1,e2)=> e1.Weight.CompareTo(e2.Weight));
-
-            // Create each vertex as subsets
-            Subset[] subsets = new Subset[verticesCount];
-            Subset sub;
-            for (int v = 0; v < verticesCount; ++v)
-            {
-                sub = new Subset();
-                sub.Parent = VertexArray[v];
-                sub.Rank = 0;
-                subsets[v] = sub;
-            }
-
-            // build min tree
-            while (e < verticesCount - 1)
-            {
-                Edge nextEdge = graph.EdgeList[k];
-                Node x = Find(subsets, nextEdge.Source, System.Array.IndexOf(VertexArray, nextEdge.Source), VertexArray);
-                Node y = Find(subsets, nextEdge.Destination, System.Array.IndexOf(VertexArray, nextEdge.Destination), VertexArray);
-
-                if (x != y)
-                {
-                    result[e++] = nextEdge;
-                    nextEdge.Destination.parent = nextEdge.Source;
-                    if (nextEdge.Source.parent == null || nextEdge.Source.parent.i == nextEdge.Destination.i || nextEdge.Source.parent.j == nextEdge.Destination.j)
-                    {
-                        if (nextEdge.Source.right_child != null)
-                        {
-                            Debug.Log("ERROR RIGHT!!!");
-                        }
-                        else
-                        {
-                            nextEdge.Source.right_child = nextEdge.Destination;
-                        }
-                    }
-                    else
-                    {
-                        if (nextEdge.Source.left_child != null)
-                        {
-                            Debug.Log("ERROR LEFT!!!");
-                        }
-                        else
-                        {
-                            nextEdge.Source.left_child = nextEdge.Destination;
-                        }
-                    }
                     //Debug.Log("Edge " + e + " S: " + nextEdge.Source.worldPosition + " to D: " + nextEdge.Destination.worldPosition);
                     Union(subsets, x, y, VertexArray);
                 }

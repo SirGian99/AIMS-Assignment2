@@ -431,14 +431,73 @@ public class PathFinder : MonoBehaviour
 
         if (source.worldPosition.x > destination.worldPosition.x)
         {
-            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DL : Orientation.UL;
+            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
+            //return source.worldPosition.z > destination.worldPosition.z ? Orientation.DL : Orientation.UL;
         }
         else
         {
-            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DR : Orientation.UR;
+            return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
+            //return source.worldPosition.z > destination.worldPosition.z ? Orientation.DR : Orientation.UR;
         }
 
     }
+
+
+    public static Direction get_direction(Orientation initial_orientation, Node current, Node destination)
+    {
+        Orientation final_orientation = getOrientation(current, destination);
+
+        if(initial_orientation == final_orientation)
+        {
+            return Direction.F;
+        }
+        switch (initial_orientation)
+        {
+            case Orientation.UU:
+                switch (final_orientation)
+                {
+                    case Orientation.L:
+                        return Direction.TL;
+                    case Orientation.R:
+                        return Direction.TR;
+                    default:
+                        return Direction.ERR;
+                }
+            case Orientation.DD:
+                switch (final_orientation)
+                {
+                    case Orientation.L:
+                        return Direction.TR;
+                    case Orientation.R:
+                        return Direction.TL;
+                    default:
+                        return Direction.ERR;
+                }
+            case Orientation.L:
+                switch (final_orientation)
+                {
+                    case Orientation.UU:
+                        return Direction.TR;
+                    case Orientation.DD:
+                        return Direction.TL;
+                    default:
+                        return Direction.ERR;
+                }
+            case Orientation.R:
+                switch (final_orientation)
+                {
+                    case Orientation.UU:
+                        return Direction.TL;
+                    case Orientation.DD:
+                        return Direction.TR;
+                    default:
+                        return Direction.ERR;
+                }
+            default:
+                return Direction.ERR;
+        }
+    }
+
 }
 
 public enum Orientation
@@ -451,4 +510,11 @@ public enum Orientation
     DR,
     L,
     R
+}
+
+public enum Direction{
+    TL,
+    TR,
+    F,
+    ERR
 }
