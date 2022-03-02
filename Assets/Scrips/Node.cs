@@ -28,7 +28,15 @@ public class Node
     public Node parent;
     public Node left_child;
     public Node right_child; //TODO REMOVE
-    public List<Node> children;
+    public List<Node> children = new List<Node>();
+    public int visited_children = 0;
+    public int children_to_visit
+    {
+        get
+        {
+            return children.Count - visited_children;
+        }
+    }
 
     public bool visited = false;
     public List<Node> merged_nodes;

@@ -442,12 +442,36 @@ public class PathFinder : MonoBehaviour
 
     }
 
+    public static Orientation getOrientation(Vector3 source, Vector3 destination)
+    {
+        if (source.x == destination.x)
+        {
+            return source.z > destination.z ? Orientation.DD : Orientation.UU;
+        }
+        if (source.z == destination.z)
+        {
+            return source.x > destination.x ? Orientation.L : Orientation.R;
+        }
+
+        if (source.x > destination.x)
+        {
+            return source.z > destination.z ? Orientation.DD : Orientation.UU;
+            //return source.worldPosition.z > destination.worldPosition.z ? Orientation.DL : Orientation.UL;
+        }
+        else
+        {
+            return source.z > destination.z ? Orientation.DD : Orientation.UU;
+            //return source.worldPosition.z > destination.worldPosition.z ? Orientation.DR : Orientation.UR;
+        }
+
+    }
+
 
     public static Direction get_direction(Orientation initial_orientation, Node current, Node destination)
     {
         Orientation final_orientation = getOrientation(current, destination);
 
-        if(initial_orientation == final_orientation)
+        if (initial_orientation == final_orientation)
         {
             return Direction.F;
         }
@@ -496,6 +520,57 @@ public class PathFinder : MonoBehaviour
             default:
                 return Direction.ERR;
         }
+    }
+
+    public static Node get_next_node(Orientation orientation, Node start)
+    {
+        Node next;
+        if (start.children.Count == 0 || start.children_to_visit == 0)
+        {
+            if (start.is_supernode)
+            {
+                return null; //means that you have to do 2 left turns and then go backward
+            }
+            else
+            {
+                return start.parent;
+            }
+        }
+
+        next = start.children[0];
+        foreach(Node child in start.children)
+        {
+            if (child.visited)
+                continue;
+            if (next.visited) //init the next node properly if start.children[0] has already been visited
+                next = child;
+            switch (orientation)
+            {
+                case Orientation.UU:
+                    if (child.worldPosition.x > next.worldPosition.x)
+                        next = child;
+                    break;
+                case Orientation.DD:
+                    if (child.worldPosition.x < next.worldPosition.x)
+                        next = child;
+                    break;
+                case Orientation.L:
+                    if (child.worldPosition.z > next.worldPosition.z)
+                        next = child;
+                    break;
+                case Orientation.R:
+                    if (child.worldPosition.z < next.worldPosition.z)
+                        next = child;
+                    break;
+                default:
+                    throw new Exception("get_next_node exception");
+
+            }
+            //Update next accordingly
+        }
+        start.visited_children++;
+        return next;
+
     }
 
 }

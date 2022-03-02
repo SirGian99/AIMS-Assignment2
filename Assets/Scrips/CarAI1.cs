@@ -233,11 +233,11 @@ namespace UnityStandardAssets.Vehicles.Car
                 //current_node = graphSTC.get_closest_node(starting_position);
                
             }
-            path.Add(current_node.worldPosition);
-            current_node.visited = true;
-            Node next_node = current_node; //TODOAssume we get this someway throug a "GetNextNode" function
 
-            for (int i = 0; i < graphSTC.VerticesCount;)
+            path.Add(current_node.worldPosition);
+            Node next_node = current_node;
+
+            for (int i = 0; i <= graphSTC.VerticesCount;)
             {
 
                 Direction direction = PathFinder.get_direction(arriving_orientation, current_node, next_node);
@@ -317,70 +317,47 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     path.Add(next_node.worldPosition);
                 }
-                next_node.visited = true;
-
-
-                arriving_orientation = new Orientation; //how do we compute this?
-
-            }
-
-                //TODO The next for is from a previous implementation
-
-                for (int i = 0; i < graphSTC.VerticesCount;)
-            {
-                Node next_node;
-
-                if(current_node.children.Count > 1)
+                if (next_node.visited == false || i == graphSTC.VerticesCount)
                 {
-
-                }else if(current_node.children.Count == 0)
-                {
-
+                    i++;
+                    next_node.visited = true;
                 }
-                else
-                {
-                    next_node = current_node.children[0];
-                    Vector3 next_position = next_node.worldPosition;
-                    Vector3 direction = (next_position - path[path.Count - 1]).normalized;
-                    Vector3 slack = (Quaternion.AngleAxis(-90, Vector3.right) * direction).normalized;
-                    Debug.Log("Direction : " + direction + " Perpendicular: " + slack);
 
-                    if (next_node.is_supernode)
+
+                arriving_orientation = PathFinder.getOrientation(path[path.Count-2], path[path.Count-1]);
+                next_node = PathFinder.get_next_node(arriving_orientation, current_node);
+
+                if (next_node == null) //Supernode dead branch: do two left turns and then go to the parent
+                {
+                    switch (arriving_orientation)
                     {
-                        next_position += new Vector3(slack.x * graph.x_unit / 2, 0, slack.z * graph.z_unit / 2); //add slack from the tree
-                        Vector3 next_position_1 = next_position + new Vector3(direction.x * graph.x_unit / 2, 0, direction.z * graph.z_unit / 2);
-                        Vector3 next_position_2 = next_position - new Vector3(direction.x * graph.x_unit / 2, 0, direction.z * graph.z_unit / 2);
-                        path.Add(next_position_1);
-                        path.Add(next_position_2);
+                        case Orientation.UU:
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            break;
+                        case Orientation.DD:
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            break;
+                        case Orientation.R:
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            break;
+                        case Orientation.L:
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            break;
                     }
-                    else
-                    {
-                        path.Add(next_position);
-                    }
+
+                    next_node = current_node.parent;
                 }
 
-                
-                if(current_node.parent != null)
-                {
-                    path.Add(current_node.parent.worldPosition);
-                    current_node = current_node.parent;
-                    
-                }
-                else
-                {
-                    break;
-                }
-            }
-            /*for (int i = 0; i < EdgeArray.Length-3; i++)
-            {
-               
-                waypoint = EdgeArray[i].Destination.worldPosition;
-                //Debug.Log(i+ "waypoint " + waypoint + EdgeArray.Length);
-                path.Add(waypoint);
-                
-            }
-            */
 
+            } 
 
             return path;
         }
