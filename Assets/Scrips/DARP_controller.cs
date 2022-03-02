@@ -28,6 +28,7 @@ public class DARP_controller
     public int n_iter, subcomponents;
     public List<List<Vector3>> all_paths;
     public GraphSTC[] subgraphs;
+    public float split_angle;
 
 
 
@@ -44,22 +45,21 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        //
 
         this.components = new int[n_agents];
         this.h1 = 1f;
-        this.h2 = 1.5f;
+        this.h2 = 0.5f;
         this.best_h = 10f * n_agents;
         this.best_h1 = n_agents;
-        this.n_iter = 1;
+        this.n_iter = 10;
+        this.split_angle = 0f;
 
         // Find ideal graph
         for (int i = 0; i < n_iter; i++)
         {
             // 1. assign to sub-graphs
-            naive_assignment(); // HOW TO CHANGE ANGLE FOR REASSIGNING?
-            smooth_areas();
-
+            naive_assignment(split_angle); 
+           
             int x1 = 0;
             int x2 = 0;
             float x = 0;
@@ -93,11 +93,13 @@ public class DARP_controller
 
                 }
             }
+            split_angle = split_angle + 10f;
         }
 
+        
 
         //Merge and Split graphs if necessary
-        while(subcomponents > n_agents)
+        while (subcomponents > n_agents)
         {
             //check all graphs
             for (int agent = 1; agent <= n_agents; agent++)
@@ -110,10 +112,19 @@ public class DARP_controller
                 {
                     //Get sub-graph
                     List<Node> VertexList = SpiltGraph(subSTC, true);
+
                     //Search neighbour index
+                    int new_index = 0; //MUST EDIT!!!
 
                     //Re-assign indices
-
+                    foreach(Node node in VertexList)
+                    {
+                        if(node != null)
+                        {
+                            assignment_matrix[node.i, node.j] = new_index;
+                            node.assigned_veichle = new_index;
+                        }
+                    }
                     //
                     subcomponents = subcomponents - 1;
                 }
@@ -133,6 +144,7 @@ public class DARP_controller
             all_paths[agent - 1] = path;
         }
 
+        smooth_areas();
     }
 
     public void create_evaluation(Vector3[] positions)
@@ -244,7 +256,7 @@ public class DARP_controller
 
     }
 
-    public void naive_assignment(Vector3? initial_position = null)
+    public void naive_assignment(float input_angle, Vector3? initial_position = null)
     {
         if (!initial_position.HasValue)
             initial_position = graph.centre;
@@ -253,20 +265,21 @@ public class DARP_controller
             for (int j = 0; j < evaluation_matrix.GetLength(2); j++)
             {
                 Node current = graph.nodes[i, j];
-                if (current.walkable)
+                if (current!=null && current.walkable)
                 {
                     Vector3 direction = (current.worldPosition - graph.centre).normalized;
                     if (direction.y != 0)
                         direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
 
-                    float angle = get_angle(direction.x, direction.z);
-                    /*if (angle < 0 && direction.z<0)
+                    float angle = get_angle(direction.x, direction.z) + (input_angle * Mathf.PI / 180f);
+                    // cap within 0-180
+                    while (angle < 0 )
                         angle = 2 * Mathf.PI + angle;
-                    if (direction.x <= 0 && direction.z<=0)
-                        angle += Mathf.PI;
-                    */
-                    //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
-                    assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
+                    while (angle > 2 * Mathf.PI)
+                        angle = angle - 2 * Mathf.PI;
+
+                  //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
+                   assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
                 }
 
             }
@@ -386,6 +399,32 @@ public class DARP_controller
         return path;
     }
 
+    // Sub-Func: Find minimum obstacle free path to subgraph
+    private Vector3 FindMinDistancePoint(Graph graph, Vector3 start_pos)
+    {
+        float minDist = Mathf.Infinity;
+        Vector3 start_grid = start_pos;
+        foreach (Node node in graph.nodes)
+        {
+            if (node != null && node.walkable==true)
+            {
+                //Find path using AStar
+                ;//EDIT!!!
+
+                // Find path length
+                float path_length = 1f; //EDIT!!!
+
+                //Check if min path and assign it as start point
+                if(path_length < minDist)
+                {
+                    minDist = path_length;
+                    start_grid = node.worldPosition;
+                }
+
+            }
+        }
+        return start_grid;
+    }
 
     // Sub-Func: Kurskal Algorithm to find number of compoenets in graph
     public int GraphComponents(GraphSTC graph)

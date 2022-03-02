@@ -304,7 +304,7 @@ public class Graph{
 
         foreach (Node node in old_graph.nodes)
         {
-            if(node.assigned_veichle == car_index)
+            if(node!=null && node.assigned_veichle == car_index)
             {
                 graph.nodes[node.i, node.j] = node;
 
