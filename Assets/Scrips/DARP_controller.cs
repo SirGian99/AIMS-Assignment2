@@ -58,8 +58,9 @@ public class DARP_controller
         for (int i = 0; i < n_iter; i++)
         {
             // 1. assign to sub-graphs
-            naive_assignment(split_angle); 
-           
+            naive_assignment(split_angle);
+            smooth_areas();
+
             int x1 = 0;
             int x2 = 0;
             float x = 0;
@@ -144,7 +145,7 @@ public class DARP_controller
             all_paths[agent - 1] = path;
         }
 
-        smooth_areas();
+        
     }
 
     public void create_evaluation(Vector3[] positions)
@@ -303,7 +304,7 @@ public class DARP_controller
             for (int j = 0; j < evaluation_matrix.GetLength(2); j++)
             {
                 Node current = graph.nodes[i, j];
-                if (current.walkable)
+                if (current!=null && current.walkable)
                 {
                     int[] neigh_car = new int[n_agents];
                     bool found = false;
@@ -339,6 +340,7 @@ public class DARP_controller
         }
     }
 
+    
     // Sub-Func: Compute path 
     private List<Vector3> ComputePath(GraphSTC graph, Edge[] EdgeArray, Vector3 starting_position)
     {
@@ -400,11 +402,11 @@ public class DARP_controller
     }
 
     // Sub-Func: Find minimum obstacle free path to subgraph
-    private Vector3 FindMinDistancePoint(Graph graph, Vector3 start_pos)
+    private Vector3 FindMinDistancePoint(Graph graph, Graph subgraph, Vector3 start_pos)
     {
         float minDist = Mathf.Infinity;
         Vector3 start_grid = start_pos;
-        foreach (Node node in graph.nodes)
+        foreach (Node node in subgraph.nodes)
         {
             if (node != null && node.walkable==true)
             {
