@@ -223,4 +223,15 @@ public class DARP_controller
             }
         }
     }
+
+    public void update_assigned_nodes(Graph graph)
+    {
+        foreach(Node n in graph.nodes)
+        {
+            if (n != null)
+            {
+                n.assigned_veichle = assignment_matrix[n.i, n.j];
+            }
+        }
+    }
 }

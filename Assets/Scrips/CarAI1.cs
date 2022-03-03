@@ -38,6 +38,8 @@ namespace UnityStandardAssets.Vehicles.Car
         private Vector3 start_pos, goal_pos;
         private int path_index;
         private List<Vector3> my_path;
+        private Node starting_node;
+        private List<Node> path_to_starting_node = new List<Node>();
 
         //Temp
         private Edge[] min_tree;
@@ -112,12 +114,27 @@ namespace UnityStandardAssets.Vehicles.Car
                 //Merge Graph
 
             }
-            
-            my_path = new List<Vector3>();
+
             graph = subgraph;
 
-            //my_path = CreateDronePath(map, transform.position);
+            //TODO must update the assigned veichle value in each node in the original graph
+            darp.update_assigned_nodes(original_graph);
+            starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
+
+            my_path = new List<Vector3>();
+            if (path_to_starting_node.Count > 0)
+            {
+                int upsampling_factor = 4;
+                path_to_starting_node = PathFinder.pathUpsampling(path_to_starting_node, upsampling_factor);
+                path_to_starting_node = PathFinder.pathSmoothing(path_to_starting_node, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
+            }
+
+
+
+            my_path = CreateDronePath(map, transform.position, starting_node);
+            //min_tree = STC(map);
             min_tree = Prim_STC(map);
+
 
         }
 
@@ -158,22 +175,27 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Divide and conquer
-        public List<Vector3> CreateDronePath(GraphSTC graph, Vector3 car_position)
+        public List<Vector3> CreateDronePath(GraphSTC graph, Vector3 car_position, Node starting_node)
         {
             Edge[] MinSTC = Prim_STC(graph);
             List<Vector3> path = null;
-            path = ComputePath(graph, MinSTC, car_position);
+
+            //if(CarNumber==2)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
+            path = ComputePath(graph, MinSTC, car_position, starting_node);
 
             return path;
         }
 
         // Sub-Func: Compute path 
-        private List<Vector3> ComputePath(GraphSTC graphSTC, Edge[] EdgeArray, Vector3 starting_position, Orientation initial_orientation=Orientation.UU)
+        private List<Vector3> ComputePath(GraphSTC graphSTC, Edge[] EdgeArray, Vector3 starting_position, Node starting_node, Orientation initial_orientation=Orientation.UU)
         {
             List<Vector3> path = new List<Vector3>();
-            Vector3 waypoint;
-            Node current_node;
+            Node current_node = starting_node;
             Orientation arriving_orientation = initial_orientation;
+
+            /*
+             * Old code to compute the starting node, should not be needed anymore
+             * 
             if (graphSTC.starting_node != null && false)
             {
                 current_node = graphSTC.starting_node;
@@ -213,8 +235,10 @@ namespace UnityStandardAssets.Vehicles.Car
                
             }
 
+            */
+
             path.Add(current_node.worldPosition);
-            Node next_node = current_node;
+            Node next_node = PathFinder.get_next_node(initial_orientation, current_node);
 
             for (int i = 0; i <= graphSTC.VerticesCount;)
             {
@@ -228,7 +252,7 @@ namespace UnityStandardAssets.Vehicles.Car
                             switch (initial_orientation)
                             {
                                 case Orientation.UU:
-                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                                    path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2), 0, current_node.z_pos + (graph.z_unit / 2)));
                                     path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                     break;
                                 case Orientation.DD:
