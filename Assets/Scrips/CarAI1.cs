@@ -116,8 +116,8 @@ namespace UnityStandardAssets.Vehicles.Car
             my_path = new List<Vector3>();
             graph = subgraph;
 
-            my_path = CreateDronePath(map, transform.position);
-            min_tree = STC(map);
+            //my_path = CreateDronePath(map, transform.position);
+            min_tree = Prim_STC(map);
 
         }
 
@@ -160,7 +160,7 @@ namespace UnityStandardAssets.Vehicles.Car
         // MAIN FUNC: Divide and conquer
         public List<Vector3> CreateDronePath(GraphSTC graph, Vector3 car_position)
         {
-            Edge[] MinSTC = STC(graph);
+            Edge[] MinSTC = Prim_STC(graph);
             List<Vector3> path = null;
             path = ComputePath(graph, MinSTC, car_position);
 
@@ -476,10 +476,77 @@ namespace UnityStandardAssets.Vehicles.Car
         // Sub-Func: Find Closest neighbour
 
 
+        // MAIN FUNC: Prims Algorithm to find minimum spanning tree
+        public Edge[] Prim_STC(GraphSTC graph)
+        {
+            int verticesCount = graph.VerticesCount;
+            int[] parent = new int[verticesCount];
+            float[] key = new float[verticesCount];
+            bool[] mstSet = new bool[verticesCount];
+
+
+            for (int i = 0; i < verticesCount; ++i)
+            {
+                key[i] = int.MaxValue;
+                mstSet[i] = false;
+            }
+
+            key[0] = 0f;
+            parent[0] = -1;
+
+            for(int count = 0; count < verticesCount -1; ++count)
+            {
+                int u = MinKey(key, mstSet, verticesCount);
+                mstSet[u] = true;
+
+                for(int v = 0; v < verticesCount; ++v)
+                {
+                    if(Convert.ToBoolean(graph.adj_matrix[u, v]) && mstSet[v] == false && graph.adj_matrix[u, v] < key[v])
+                    {
+                        parent[v] = u;
+                        key[v] = graph.adj_matrix[u, v];
+                    }
+                }
+            }
+
+            // Construct Edges
+            Edge[] result = new Edge[verticesCount - 1];
+            for (int i = 1; i < verticesCount; ++i)
+            {
+                Edge nextEdge = new Edge();
+                nextEdge.Source = graph.VertexArray[parent[i]];
+                nextEdge.Destination = graph.VertexArray[i];
+                nextEdge.Weight = graph.adj_matrix[i, parent[i]];
+                result[i - 1] = nextEdge;
+                Debug.Log(CarNumber + " NewEdge (" + nextEdge.Source.i + "," + nextEdge.Source.j + ") - (" + nextEdge.Destination.i + "," + nextEdge.Destination.j + ")");
+                //Debug.Log(CarNumber + " NewEdge "+ nextEdge.Source + " - " + nextEdge.Destination);
+            }
+            Debug.Log(CarNumber + " Vertices: " + verticesCount + " Edges: " + result.Length);
+            return result;
+        }
+
+        //Sub-Func: function to find minimum key
+        private static int MinKey(float[] key, bool[] set, int verticesCount)
+        {
+            float min = float.MaxValue;
+            int minIndex = 0;
+
+            for (int v = 0; v < verticesCount; ++v)
+            {
+                if (set[v] == false && key[v] < min)
+                {
+                    min = key[v];
+                    minIndex = v;
+                }
+            }
+
+            return minIndex;
+        }
+
 
 
         // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
-        public Edge[] STC(GraphSTC graph)
+        public Edge[] Kruskal_STC(GraphSTC graph)
         {
             int verticesCount = graph.VerticesCount;
             Edge[] result = new Edge[verticesCount];
