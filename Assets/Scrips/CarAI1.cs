@@ -72,29 +72,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
             x_scale = x_scale * ((int)(x_len / x_unit) / x_scale);
             z_scale = z_scale * ((int)(z_len / z_unit) / z_scale);
-            //Debug.Log("x_unit: " + x_unit + " z_unit: " + z_unit);
-            //Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
-            //Debug.Log("x_len: " + x_len + " z_len: " + z_len);
-
-            /*
-
-            float z_unit = z_len / z_scale;
-            float ratio = x_unit / z_unit;
-
-
-            if (x_unit < carSize.x * 2)
-            {
-                Debug.Log("Block width is too low");
-                x_scale /= 2;
-                x_unit *= 2;
-            }
-            if (z_unit < carSize.z)
-            {
-                Debug.Log("Block height is too low");
-                z_scale /= 2;
-                z_unit *= 2;
-            }
-            */
+            
 
             //i want x_unit and z_unit to be √2r, where r is the range of the gun.
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
@@ -136,9 +114,10 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             
             my_path = new List<Vector3>();
-            my_path = CreateDronePath(map);
-            min_tree = STC(map);
             graph = subgraph;
+
+            my_path = CreateDronePath(map, transform.position);
+            min_tree = STC(map);
 
         }
 
@@ -179,11 +158,11 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Divide and conquer
-        public List<Vector3> CreateDronePath(GraphSTC graph)
+        public List<Vector3> CreateDronePath(GraphSTC graph, Vector3 car_position)
         {
             Edge[] MinSTC = STC(graph);
             List<Vector3> path = null;
-            path = ComputePath(graph, MinSTC, graph.start_pos);
+            path = ComputePath(graph, MinSTC, car_position);
 
             return path;
         }
@@ -195,7 +174,7 @@ namespace UnityStandardAssets.Vehicles.Car
             Vector3 waypoint;
             Node current_node;
             Orientation arriving_orientation = initial_orientation;
-            if (graphSTC.starting_node != null)
+            if (graphSTC.starting_node != null && false)
             {
                 current_node = graphSTC.starting_node;
             }
@@ -213,7 +192,7 @@ namespace UnityStandardAssets.Vehicles.Car
                     {
                         for(int jj = -1; jj<2 && !found; jj++)
                         {
-                            Node n = graph.nodes[ii, jj];
+                            Node n = graph.nodes[i + ii, j + jj];
                             if(n!= null && n.is_supernode)
                             {
                                 foreach(Node merged in n.merged_nodes)
