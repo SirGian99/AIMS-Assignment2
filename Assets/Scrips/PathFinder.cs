@@ -573,6 +573,44 @@ public class PathFinder : MonoBehaviour
 
     }
 
+
+
+    public static Node get_starting_node(Vector3 start_position, int car_index, Graph original_graph, float heading, ref List<Node> path)
+    {
+        Node initial_node = original_graph.getNodeFromPoint(start_position);
+        Node to_return=null;
+        if (initial_node.assigned_veichle == car_index)
+            return initial_node;
+        else
+        {
+            int range = 0;
+            while (to_return == null) {
+                for (int i = -1 - range; i <2+range; i++) {
+                    for (int j = -1 - range; j < 2 + range; j++)
+                    {
+                        int ii = initial_node.i + i;
+                        int jj = initial_node.j + j;
+                        if (ii < 0 || jj < 0 || ii >= original_graph.nodes.GetLength(0) || jj >= original_graph.nodes.GetLength(1))
+                            continue;
+                        Node current = original_graph.nodes[ii, jj];
+                        if (current.assigned_veichle == car_index)
+                        {
+                            findPath(original_graph, start_position, current.worldPosition, heading);
+                            if (path.Count == 0 || path.Count > original_graph.path.Count)
+                            {
+                                path = original_graph.path;
+                                to_return = path[path.Count-1];
+                            }
+                        }
+                    }
+                }
+                range++;
+            }
+            return to_return;
+        }
+    }
+
+
 }
 
 public enum Orientation
