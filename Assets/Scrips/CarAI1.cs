@@ -183,7 +183,7 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             Edge[] MinSTC = STC(graph);
             List<Vector3> path = null;
-            //path = ComputePath(graph, MinSTC, graph.start_pos);
+            path = ComputePath(graph, MinSTC, graph.start_pos);
 
             return path;
         }
@@ -405,11 +405,11 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
                 k++;
                 
-                if (k >= graph.EdgesCount)
-                {
+                //if (k >= graph.EdgesCount)
+                //{
                     //Debug.Log("Car " + CarNumber + " TotalEdges, k: " + graph.EdgesCount + " " + k + " MinEdges,e"+ (verticesCount-1) + " " + e  + " " );
-                    break;
-                }
+                  //  break;
+                //}
             }
             subset_count = verticesCount - e;
 
@@ -570,11 +570,11 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
                 k++;
                 //Debug.Log("Car " + CarNumber + " k,e: " + k + " " + e + " " + graph.EdgesCount);
-                //if (k >= graph.EdgesCount)
-                //{
-                //    Debug.Log("STILL ENTERING HERE: "  + CarNumber);
-                //    break;
-                //}
+                if (k >= graph.EdgesCount)
+                {
+                   Debug.Log("STILL ENTERING HERE: "  + CarNumber);
+                    break;
+                }
             }
 
             return result;

@@ -27,7 +27,7 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        naive_assignment(initial_positions[0]);
+        naive_assignment(12, initial_positions[0]);
         smooth_areas();
 
     }
@@ -141,7 +141,7 @@ public class DARP_controller
 
     }
 
-    public void naive_assignment(Vector3? initial_position = null)
+    public void naive_assignment(float input_angle = 0, Vector3? initial_position = null)
     {
         if (!initial_position.HasValue)
             initial_position = graph.centre;
@@ -156,12 +156,13 @@ public class DARP_controller
                     if (direction.y != 0)
                         direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
 
-                    float angle = get_angle(direction.x, direction.z);
-                    /*if (angle < 0 && direction.z<0)
+                    float angle = get_angle(direction.x, direction.z) + (input_angle * Mathf.PI / 180f);
+                    // cap within 0-180
+                    while (angle < 0)
                         angle = 2 * Mathf.PI + angle;
-                    if (direction.x <= 0 && direction.z<=0)
-                        angle += Mathf.PI;
-                    */
+                    while (angle > 2 * Mathf.PI)
+                        angle = angle - 2 * Mathf.PI;
+
                     //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
                     assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
                 }
