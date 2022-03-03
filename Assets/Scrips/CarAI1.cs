@@ -477,12 +477,52 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
         // MAIN FUNC: Prims Algorithm to find minimum spanning tree
-        public Edge[] Prim_STC(GraphSTC graph)
+        public Edge[] Prim_STC(GraphSTC graph, Node starting_node)
         {
+
+            int start_node = Array.IndexOf(graph.VertexArray, starting_node);
+
+
             int verticesCount = graph.VerticesCount;
             int[] parent = new int[verticesCount];
             float[] key = new float[verticesCount];
             bool[] mstSet = new bool[verticesCount];
+
+            mstSet[start_node] = true;
+            starting_node.parent = null;
+            int min_cost_src = -1;
+            int min_cost_dest = -1;
+            float min_cost = float.MaxValue;
+
+            Edge[] result = new Edge[verticesCount - 1];
+
+            for (int k = 0; k < verticesCount-1; k++)
+            {
+                for (int i = 0; i < verticesCount; i++)
+                {
+                    if (mstSet[i])
+                    {
+                        for (int j = 0; j < verticesCount; j++)
+                        {
+                            if (!mstSet[j] && graph.adj_matrix[i, j] < min_cost)
+                            {
+                                min_cost_src = i;
+                                min_cost_dest = j;
+                                min_cost = graph.adj_matrix[i, j];
+                            }
+                        }
+                    }
+                }
+                mstSet[min_cost_dest] = true;
+                Edge nextEdge = new Edge();
+                nextEdge.Source = graph.VertexArray[min_cost_src];
+                nextEdge.Destination = graph.VertexArray[min_cost_dest];
+                nextEdge.Weight = min_cost;
+                nextEdge.Source.children.Add(nextEdge.Destination);
+                nextEdge.Destination.parent = nextEdge.Source;
+                result[k] = nextEdge;
+            }
+            /*
 
 
             for (int i = 0; i < verticesCount; ++i)
@@ -510,7 +550,7 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
             // Construct Edges
-            Edge[] result = new Edge[verticesCount - 1];
+            //Edge[] result = new Edge[verticesCount - 1];
             for (int i = 1; i < verticesCount; ++i)
             {
                 Edge nextEdge = new Edge();
@@ -518,10 +558,11 @@ namespace UnityStandardAssets.Vehicles.Car
                 nextEdge.Destination = graph.VertexArray[i];
                 nextEdge.Weight = graph.adj_matrix[i, parent[i]];
                 result[i - 1] = nextEdge;
-                Debug.Log(CarNumber + " NewEdge (" + nextEdge.Source.i + "," + nextEdge.Source.j + ") - (" + nextEdge.Destination.i + "," + nextEdge.Destination.j + ")");
-                //Debug.Log(CarNumber + " NewEdge "+ nextEdge.Source + " - " + nextEdge.Destination);
+                //Debug.Log(CarNumber + " NewEdge (" + nextEdge.Source.i + "," + nextEdge.Source.j + ") - (" + nextEdge.Destination.i + "," + nextEdge.Destination.j + ")");
+                Debug.Log(CarNumber + " NewEdge "+ nextEdge.Source + " - " + nextEdge.Destination);
             }
             Debug.Log(CarNumber + " Vertices: " + verticesCount + " Edges: " + result.Length);
+            */
             return result;
         }
 
