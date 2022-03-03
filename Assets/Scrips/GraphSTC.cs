@@ -20,6 +20,7 @@ public class GraphSTC
     public List<Edge> EdgeList;
     public Node[] VertexArray;
     public Graph original_graph;
+    public float[,] adj_matrix;
 
     public GraphSTC(Graph graph, Vector3 start_pos)
     {
@@ -74,6 +75,15 @@ public class GraphSTC
         for (int v = 0; v < VertexList.Count; v++)
         {
             this.VertexArray[v] = VertexList[v];
+        }
+
+        //Create adjency matrix
+        this.adj_matrix = new float[this.VerticesCount, this.VerticesCount];
+        foreach(Edge edge in EdgeList)
+        {
+            int u = System.Array.IndexOf(this.VertexArray, edge.Source);
+            int v = System.Array.IndexOf(this.VertexArray, edge.Destination);
+            this.adj_matrix[u, v] = edge.Weight;
         }
     }
 
