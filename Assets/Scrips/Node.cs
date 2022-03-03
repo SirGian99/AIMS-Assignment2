@@ -93,5 +93,10 @@ public class Node
         return copy;
     }
 
+    public override string ToString() {
+
+        return "[" + i + "," + j + "]";
+    }
+
 }
 
