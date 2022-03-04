@@ -278,6 +278,27 @@ public class PathFinder : MonoBehaviour
         return upsampled_path;
     }
 
+    public static List<Vector3> pathUpsampling(List<Vector3> original_path, int mul_fact)
+    {
+        if (original_path == null || original_path.Count == 0)
+            return null;
+        List<Vector3> upsampled_path = new List<Vector3>();
+        for (int i = 0; i < original_path.Count - 1; i++)
+        {
+            Vector3 curr = original_path[i];
+            Vector3 next = original_path[i + 1];
+            for (int j = 1; j <= mul_fact; j++)
+            {
+                float new_x_pos = (next.x - curr.x) / mul_fact * j + curr.x;
+                float new_z_pos = (next.z - curr.z) / mul_fact * j + curr.z;
+                Vector3 new_point = new Vector3(new_x_pos, 0, new_z_pos);
+                upsampled_path.Add(new_point);
+            }
+        }
+
+        return upsampled_path;
+    }
+
 
     public static List<Node> pathSmoothing(List<Node> path, float weight_data= 0.5f, float weight_smooth= 0.1f, float tolerance= 0.000001f)
     {
@@ -327,6 +348,55 @@ public class PathFinder : MonoBehaviour
         foreach(Node n in smoothed)
         {
             n.worldPosition = new Vector3(n.x_pos, 0, n.z_pos);
+        }
+
+        return smoothed;
+    }
+
+
+    public static List<Vector3> pathSmoothing(List<Vector3> path, float weight_data = 0.5f, float weight_smooth = 0.1f, float tolerance = 0.000001f)
+    {
+        List<Vector3> smoothed = new List<Vector3>();
+
+        foreach (Vector3 point in path)
+        {
+            smoothed.Add(new Vector3(point.x, 0, point.z));
+        }
+        if (smoothed.Count != path.Count)
+        {
+            Debug.Log("ERROR!");
+        }
+
+
+        float change = tolerance;
+
+
+        float x_i_x, y_i_x, y_prev_x, y_next_x, y_i_saved_x;
+        float x_i_z, y_i_z, y_prev_z, y_next_z, y_i_saved_z;
+
+        while (change >= tolerance)
+        {
+            change = 0;
+            for (int i = 1; i < smoothed.Count - 1; i++)
+            {
+                x_i_x = path[i].x;
+                y_i_x = smoothed[i].x;
+                y_prev_x = smoothed[i - 1].x;
+                y_next_x = smoothed[i + 1].x;
+                y_i_saved_x = y_i_x;
+                y_i_x += weight_data * (x_i_x - y_i_x) + weight_smooth * (y_next_x + y_prev_x - (2 * y_i_x));
+                smoothed[i]= new Vector3(y_i_x, 0, smoothed[i].z);
+                change += Math.Abs(y_i_x - y_i_saved_x);
+
+                x_i_z = path[i].z;
+                y_i_z = smoothed[i].z;
+                y_prev_z = smoothed[i - 1].z;
+                y_next_z = smoothed[i + 1].z;
+                y_i_saved_z = y_i_z;
+                y_i_z += weight_data * (x_i_z - y_i_z) + weight_smooth * (y_next_z + y_prev_z - (2 * y_i_z));
+                smoothed[i] = new Vector3(smoothed[i].x, 0, y_i_z);
+                change += Math.Abs(y_i_z - y_i_saved_z);
+            }
         }
 
         return smoothed;

@@ -40,6 +40,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private List<Vector3> my_path;
         private Node starting_node;
         private List<Node> path_to_starting_node = new List<Node>();
+        private List<Vector3> final_path = new List<Vector3>();
 
         //Temp
         private Edge[] min_tree;
@@ -122,9 +123,10 @@ namespace UnityStandardAssets.Vehicles.Car
             starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
 
             my_path = new List<Vector3>();
+            int upsampling_factor = 4;
+
             if (path_to_starting_node.Count > 0)
             {
-                int upsampling_factor = 4;
                 path_to_starting_node = PathFinder.pathUpsampling(path_to_starting_node, upsampling_factor);
                 path_to_starting_node = PathFinder.pathSmoothing(path_to_starting_node, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
             }
@@ -134,7 +136,15 @@ namespace UnityStandardAssets.Vehicles.Car
             my_path = CreateDronePath(map, transform.position, starting_node);
             //min_tree = STC(map);
             min_tree = Prim_STC(map, starting_node);
+            my_path = PathFinder.pathUpsampling(my_path, upsampling_factor);
+            my_path = PathFinder.pathSmoothing(my_path, 0.6f, 0.2f, 1E-09f);
 
+            foreach(Node n in path_to_starting_node)
+            {
+                final_path.Add(n.worldPosition);
+            }
+            final_path.AddRange(my_path);
+            my_path = final_path;
 
         }
 
