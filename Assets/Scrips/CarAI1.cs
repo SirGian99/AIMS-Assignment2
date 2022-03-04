@@ -180,7 +180,7 @@ namespace UnityStandardAssets.Vehicles.Car
             Edge[] MinSTC = Prim_STC(graph, starting_node);
             List<Vector3> path = null;
 
-            if(CarNumber==2)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
+            //if(CarNumber==1)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
             path = ComputePath(graph, MinSTC, car_position, starting_node);
 
             return path;
@@ -237,7 +237,14 @@ namespace UnityStandardAssets.Vehicles.Car
 
             */
 
-            path.Add(current_node.worldPosition);
+            if (!current_node.is_supernode)
+            {
+                path.Add(current_node.worldPosition);
+            }
+            else
+            {
+                path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+            }
             Node next_node;// = PathFinder.get_next_node(initial_orientation, current_node);
 
             for (int i = 0; i <= graphSTC.VerticesCount;)
@@ -347,7 +354,7 @@ namespace UnityStandardAssets.Vehicles.Car
                             default:
                                 throw new Exception("GOT DIRECTION ERROR");
                         }
-                        arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
+                        //arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
                     }
                     else
                     {
@@ -405,10 +412,27 @@ namespace UnityStandardAssets.Vehicles.Car
                                         break;
                                 }
                                 break;
+                            case Direction.UTURN:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                }
+                                break;
                             default:
                                 throw new Exception("GOT DIRECTION ERROR SMALL NODE");
                         }
-                        arriving_orientation = PathFinder.getOrientation(current_node, next_node);
+                        //arriving_orientation = PathFinder.getOrientation(current_node, next_node);
                     }
                 }
                 else
@@ -675,7 +699,7 @@ namespace UnityStandardAssets.Vehicles.Car
                     }
                 }
 
-                if (CarNumber == 1)
+                if (CarNumber == 2)
                 {
                     Debug.Log("Adding edge Source index: " + min_cost_src + " dest index:" + min_cost_dest + " wasSourceIn" + mstSet[min_cost_src] + "wasDestIn" + mstSet[min_cost_dest]);
                 }
@@ -684,11 +708,12 @@ namespace UnityStandardAssets.Vehicles.Car
                 nextEdge.Source = graph.VertexArray[min_cost_src];
                 nextEdge.Destination = graph.VertexArray[min_cost_dest];
                 nextEdge.Weight = min_cost;
-                nextEdge.Source.children.Add(nextEdge.Destination);
+                if(!nextEdge.Source.children.Contains(nextEdge.Destination))
+                    nextEdge.Source.children.Add(nextEdge.Destination);
                 nextEdge.Destination.parent = nextEdge.Source;
                 result[k] = nextEdge;
                 min_cost = float.MaxValue;
-                if (CarNumber == 1)
+                if (CarNumber == 2)
                     Debug.Log("Adding edge from node " + nextEdge.Source + " to " + nextEdge.Destination + " k:" + k + "Total" + (verticesCount-1));
                 //min_cost_dest = -1;
                 //min_cost_src = -1;

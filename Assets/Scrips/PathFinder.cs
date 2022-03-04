@@ -431,13 +431,13 @@ public class PathFinder : MonoBehaviour
             return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
         }
 
-        if (!source.is_supernode && destination.is_supernode)
+        if (!source.is_supernode && destination.is_supernode || source.is_supernode && !destination.is_supernode)
         {
-            if(Mathf.Abs(source.j - destination.j) < 2)
+            if(Mathf.Abs(source.j - destination.j) < 2 && source.i != destination.i)
             {
                 return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
             }
-            if(Mathf.Abs(source.i - destination.i) < 2)
+            if(Mathf.Abs(source.i - destination.i) < 2 && source.j != destination.j)
             {
                 return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
             }
@@ -498,6 +498,15 @@ public class PathFinder : MonoBehaviour
                         return Direction.TL;
                     case Orientation.R:
                         return Direction.TR;
+                    case Orientation.DD:
+                        if(!current.is_supernode && destination.is_supernode)
+                        {
+                            return Direction.UTURN;
+                        }
+                        else
+                        {
+                            return Direction.ERR;
+                        }
                     default:
                         return Direction.ERR;
                 }
@@ -508,6 +517,15 @@ public class PathFinder : MonoBehaviour
                         return Direction.TR;
                     case Orientation.R:
                         return Direction.TL;
+                    case Orientation.UU:
+                        if (!current.is_supernode && destination.is_supernode)
+                        {
+                            return Direction.UTURN;
+                        }
+                        else
+                        {
+                            return Direction.ERR;
+                        }
                     default:
                         return Direction.ERR;
                 }
@@ -659,5 +677,6 @@ public enum Direction{
     TL,
     TR,
     F,
+    UTURN,
     ERR
 }
