@@ -180,7 +180,7 @@ namespace UnityStandardAssets.Vehicles.Car
             Edge[] MinSTC = Prim_STC(graph, starting_node);
             List<Vector3> path = null;
 
-            //if(CarNumber==2)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
+            if(CarNumber==2)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
             path = ComputePath(graph, MinSTC, car_position, starting_node);
 
             return path;
