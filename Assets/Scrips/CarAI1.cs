@@ -464,7 +464,7 @@ namespace UnityStandardAssets.Vehicles.Car
                     next_node.visited = true;
                 }
 
-                if (next_node == starting_node)
+                if (next_node == starting_node && next_node.children_to_visit ==0)
                     break;
 
                 arriving_orientation = PathFinder.getOrientation(current_node, next_node);

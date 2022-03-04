@@ -332,7 +332,7 @@ public class Graph{
                 {
                     if(graph.nodes[i + 1, j]!=null && graph.nodes[i, j + 1] != null && graph.nodes[i + 1, j + 1] != null &&
                         graph.nodes[i+1, j].walkable && graph.nodes[i, j+1].walkable && graph.nodes[i + 1, j+1].walkable &&
-                        !(graph.nodes[i + 1, j].is_supernode && graph.nodes[i, j + 1].is_supernode && graph.nodes[i + 1, j + 1].is_supernode))
+                        !(graph.nodes[i + 1, j].is_supernode || graph.nodes[i, j + 1].is_supernode || graph.nodes[i + 1, j + 1].is_supernode))
                     {
                         //MERGING NODES
                         node.is_supernode = true;
