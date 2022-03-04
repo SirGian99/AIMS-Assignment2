@@ -536,6 +536,15 @@ public class PathFinder : MonoBehaviour
                         return Direction.TR;
                     case Orientation.DD:
                         return Direction.TL;
+                    case Orientation.R:
+                        if (!current.is_supernode && destination.is_supernode)
+                        {
+                            return Direction.UTURN;
+                        }
+                        else
+                        {
+                            return Direction.ERR;
+                        }
                     default:
                         return Direction.ERR;
                 }
@@ -546,6 +555,15 @@ public class PathFinder : MonoBehaviour
                         return Direction.TL;
                     case Orientation.DD:
                         return Direction.TR;
+                    case Orientation.L:
+                        if (!current.is_supernode && destination.is_supernode)
+                        {
+                            return Direction.UTURN;
+                        }
+                        else
+                        {
+                            return Direction.ERR;
+                        }
                     default:
                         return Direction.ERR;
                 }

@@ -243,7 +243,7 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             else
             {
-                path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
             }
             Node next_node;// = PathFinder.get_next_node(initial_orientation, current_node);
 
@@ -318,8 +318,8 @@ namespace UnityStandardAssets.Vehicles.Car
                                         path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
                                         path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
                                         path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.R:
@@ -330,7 +330,7 @@ namespace UnityStandardAssets.Vehicles.Car
                                     case Orientation.L:
                                         path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
                                         path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
-                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -1094,7 +1094,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Gizmos.color = Color.black;
                 for (int i = 0; i < my_path.Count - 1; ++i)
                 {
-                    Gizmos.color = colors[i % colors.Length];
+                    Gizmos.color = colors[i/2 % colors.Length];
                     Gizmos.DrawLine(my_path[i], my_path[i + 1]);
                 }
             }
