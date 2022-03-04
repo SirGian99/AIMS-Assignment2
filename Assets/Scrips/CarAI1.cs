@@ -119,7 +119,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
             //TODO must update the assigned veichle value in each node in the original graph
             darp.update_assigned_nodes(original_graph);
-            starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
+            starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
 
             my_path = new List<Vector3>();
             if (path_to_starting_node.Count > 0)
@@ -133,7 +133,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
             my_path = CreateDronePath(map, transform.position, starting_node);
             //min_tree = STC(map);
-            min_tree = Prim_STC(map);
+            min_tree = Prim_STC(map, starting_node);
 
 
         }
@@ -177,7 +177,7 @@ namespace UnityStandardAssets.Vehicles.Car
         // MAIN FUNC: Divide and conquer
         public List<Vector3> CreateDronePath(GraphSTC graph, Vector3 car_position, Node starting_node)
         {
-            Edge[] MinSTC = Prim_STC(graph);
+            Edge[] MinSTC = Prim_STC(graph, starting_node);
             List<Vector3> path = null;
 
             //if(CarNumber==2)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
@@ -238,96 +238,10 @@ namespace UnityStandardAssets.Vehicles.Car
             */
 
             path.Add(current_node.worldPosition);
-            Node next_node = PathFinder.get_next_node(initial_orientation, current_node);
+            Node next_node;// = PathFinder.get_next_node(initial_orientation, current_node);
 
             for (int i = 0; i <= graphSTC.VerticesCount;)
             {
-
-                Direction direction = PathFinder.get_direction(arriving_orientation, current_node, next_node);
-                if (next_node.is_supernode)
-                {
-                    switch (direction)
-                    {
-                        case Direction.F:
-                            switch (initial_orientation)
-                            {
-                                case Orientation.UU:
-                                    path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2), 0, current_node.z_pos + (graph.z_unit / 2)));
-                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
-                                    break;
-                                case Orientation.DD:
-                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
-                                    break;
-                                case Orientation.R:
-                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
-                                    break;
-                                case Orientation.L:
-                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
-                                    break;
-                            }
-                            break;
-                        case Direction.TL:
-                            switch (initial_orientation)
-                            {
-                                case Orientation.UU:
-                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
-                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
-                                    break;
-                                case Orientation.DD:
-                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
-                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
-                                    break;
-                                case Orientation.R:
-                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
-                                    path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
-                                    break;
-                                case Orientation.L:
-                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
-                                    path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
-                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
-                                    break;
-                            }
-                            break;
-                        case Direction.TR:
-                            switch (initial_orientation)
-                            {
-                                case Orientation.UU:
-                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
-                                    break;
-                                case Orientation.DD:
-                                    path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
-                                    break;
-                                case Orientation.R:
-                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
-                                    break;
-                                case Orientation.L:
-                                    path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
-                                    break;
-                            }
-                            break;
-                        default:
-                            throw new Exception("GOT DIRECTION ERROR");
-                    }
-
-                }
-                else
-                {
-                    path.Add(next_node.worldPosition);
-                }
-                if (next_node.visited == false || i == graphSTC.VerticesCount)
-                {
-                    i++;
-                    next_node.visited = true;
-                }
-
-
-                arriving_orientation = PathFinder.getOrientation(path[path.Count-2], path[path.Count-1]);
                 next_node = PathFinder.get_next_node(arriving_orientation, current_node);
 
                 if (next_node == null) //Supernode dead branch: do two left turns and then go to the parent
@@ -340,8 +254,8 @@ namespace UnityStandardAssets.Vehicles.Car
                             path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
                             break;
                         case Orientation.DD:
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
                             path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
                             path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
                             break;
                         case Orientation.R:
@@ -357,10 +271,208 @@ namespace UnityStandardAssets.Vehicles.Car
                     }
 
                     next_node = current_node.parent;
+                    arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
                 }
 
+                Direction direction = PathFinder.get_direction(arriving_orientation, current_node, next_node);
+                if (next_node.is_supernode)
+                {
+                    if (current_node.is_supernode)
+                    {
+                        switch (direction)
+                        {
+                            case Direction.F:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + (graph.z_unit / 2)));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + (graph.z_unit / 2f)));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                }
+                                break;
+                            case Direction.TL:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                }
+                                break;
+                            case Direction.TR:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2f, 0, next_node.z_pos - graph.z_unit / 2f));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2f, 0, next_node.z_pos + graph.z_unit / 2f));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2f, 0, next_node.z_pos + graph.z_unit / 2f));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2f));
+                                        break;
+                                }
+                                break;
+                            default:
+                                throw new Exception("GOT DIRECTION ERROR");
+                        }
+                        arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
+                    }
+                    else
+                    {
+                        path.Add(current_node.worldPosition);
+                        switch (direction)
+                        {
+                            case Direction.F:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                }
+                                break;
+                            case Direction.TL:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));//seems wrong at a first glance but i'm tired and may be wrong myself
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                }
+                                break;
+                            case Direction.TR:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
+                                        break;
+                                }
+                                break;
+                            default:
+                                throw new Exception("GOT DIRECTION ERROR SMALL NODE");
+                        }
+                        arriving_orientation = PathFinder.getOrientation(current_node, next_node);
+                    }
+                }
+                else
+                {
+                    if (current_node.is_supernode)
+                    {
+                        switch (direction)
+                        {
+                            case Direction.F:
+                                path.Add(next_node.worldPosition);
+                                break;
+                            case Direction.TL:
+                                switch (arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(next_node.worldPosition);
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(next_node.worldPosition);
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(next_node.worldPosition);
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(next_node.worldPosition);
+                                        break;
+                                }
+                                break;
+                            case Direction.TR:
+                                path.Add(next_node.worldPosition);
+                                break;
+                            default:
+                                throw new Exception("GOT DIRECTION ERROR");
+                        }
+                    }
+                    else
+                    {
+                        path.Add(next_node.worldPosition);
+                    }
+                    arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
+                }
+                if (next_node.visited == false || i == graphSTC.VerticesCount)
+                {
+                    i++;
+                    next_node.visited = true;
+                }
 
-            } 
+                if (next_node == starting_node)
+                    break;
+
+                arriving_orientation = PathFinder.getOrientation(current_node, next_node);
+                current_node = next_node;
+
+
+
+            }
 
             return path;
         }
@@ -505,12 +617,37 @@ namespace UnityStandardAssets.Vehicles.Car
         {
 
             int start_node = Array.IndexOf(graph.VertexArray, starting_node);
+            string adjacency_string = "DEBUGG\n";
 
+            if (CarNumber == 1)
+            {
+                
+                for(int z = 0; z< graph.VertexArray.Length; z++)
+                {
+                    Debug.Log("DEBUGG Node " + z + ": " + graph.VertexArray[z]);
+                }
+
+                for(int i = 0; i<graph.adj_matrix.GetLength(0); i++)
+                {
+                    for(int j= 0; j < graph.adj_matrix.GetLength(1); j++)
+                    {
+                        adjacency_string += "" + graph.adj_matrix[i, j] + ";";
+                    }
+                    adjacency_string += "\n";
+                }
+                Debug.Log(adjacency_string);
+
+            }
 
             int verticesCount = graph.VerticesCount;
             int[] parent = new int[verticesCount];
             float[] key = new float[verticesCount];
             bool[] mstSet = new bool[verticesCount];
+
+            for(int i = 0; i < verticesCount; i++)
+            {
+                mstSet[i] = false;
+            }
 
             mstSet[start_node] = true;
             starting_node.parent = null;
@@ -518,24 +655,29 @@ namespace UnityStandardAssets.Vehicles.Car
             int min_cost_dest = -1;
             float min_cost = float.MaxValue;
 
-            Edge[] result = new Edge[verticesCount - 1];
+            Edge[] result = new Edge[verticesCount];
 
-            for (int k = 0; k < verticesCount-1; k++)
+            for (int k = 0; k < verticesCount; k++)
             {
-                for (int i = 0; i < verticesCount; i++)
+                for (int source_index = 0; source_index < verticesCount; source_index++)
                 {
-                    if (mstSet[i])
+                    if (mstSet[source_index])
                     {
-                        for (int j = 0; j < verticesCount; j++)
+                        for (int dest_index = 0; dest_index < verticesCount; dest_index++)
                         {
-                            if (!mstSet[j] && graph.adj_matrix[i, j] < min_cost)
+                            if (!mstSet[dest_index] && graph.adj_matrix[source_index, dest_index] >= 0 && graph.adj_matrix[source_index, dest_index] < min_cost)
                             {
-                                min_cost_src = i;
-                                min_cost_dest = j;
-                                min_cost = graph.adj_matrix[i, j];
+                                min_cost_src = source_index;
+                                min_cost_dest = dest_index;
+                                min_cost = graph.adj_matrix[source_index, dest_index];
                             }
                         }
                     }
+                }
+
+                if (CarNumber == 1)
+                {
+                    Debug.Log("Adding edge Source index: " + min_cost_src + " dest index:" + min_cost_dest + " wasSourceIn" + mstSet[min_cost_src] + "wasDestIn" + mstSet[min_cost_dest]);
                 }
                 mstSet[min_cost_dest] = true;
                 Edge nextEdge = new Edge();
@@ -545,6 +687,12 @@ namespace UnityStandardAssets.Vehicles.Car
                 nextEdge.Source.children.Add(nextEdge.Destination);
                 nextEdge.Destination.parent = nextEdge.Source;
                 result[k] = nextEdge;
+                min_cost = float.MaxValue;
+                if (CarNumber == 1)
+                    Debug.Log("Adding edge from node " + nextEdge.Source + " to " + nextEdge.Destination + " k:" + k + "Total" + (verticesCount-1));
+                //min_cost_dest = -1;
+                //min_cost_src = -1;
+                
             }
             /*
 
@@ -915,16 +1063,16 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
 
 
-                //Show the path to the goal
-                if (my_path != null)
+            //Show the path to the goal
+            if (my_path != null)
+            {
+                Gizmos.color = Color.black;
+                for (int i = 0; i < my_path.Count - 1; ++i)
                 {
-                    Gizmos.color = Color.black;
-                    for (int i = 0; i < my_path.Count - 1; ++i)
-                    {
-                        ;
-                        //Gizmos.DrawLine(my_path[i], my_path[i + 1]);
-                    }
+                    Gizmos.color = colors[i % colors.Length];
+                    Gizmos.DrawLine(my_path[i], my_path[i + 1]);
                 }
+            }
 
 
             

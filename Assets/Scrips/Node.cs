@@ -44,6 +44,9 @@ public class Node
     public List<Node> neighbours;
     public bool is_supernode = false;
 
+    public bool has_been_merged;
+    public Node merged_supernode;
+
     public Node(int i, int j, float x_pos, float z_pos, bool walkable=true)
     {
         this.i = i;

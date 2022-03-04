@@ -24,6 +24,7 @@ public class Graph{
     public int[,] graphTraversabilityMatrix;
         
     public Node[,] nodes;
+    public Node[,] merged_graph;
 
     ////STC variables
     //public int VerticesCount;
@@ -43,6 +44,7 @@ public class Graph{
         this.x_unit = (x_high - x_low) / i_size;
         this.z_unit = (z_high - z_low) / j_size;
         this.nodes = new Node[i_size, j_size];
+        this.merged_graph = new Node[i_size, j_size];
         this.graphTraversabilityMatrix = new int[i_size, j_size];
         centre = new Vector3((x_high - x_low) / 2 + x_low, 0, (z_high - z_low) / 2 + z_low);
     }
@@ -335,14 +337,27 @@ public class Graph{
                         //MERGING NODES
                         node.is_supernode = true;
                         node.worldPosition = new Vector3(node.worldPosition.x + graph.x_unit / 2, 0, node.worldPosition.z + graph.z_unit / 2);
+                        node.x_pos = node.worldPosition.x;
+                        node.z_pos = node.worldPosition.z;
                         node.merged_nodes = new List<Node>();
                         node.merged_nodes.Add(node);
                         node.merged_nodes.Add(old_graph.nodes[i + 1, j]);
                         node.merged_nodes.Add(old_graph.nodes[i, j + 1]);
                         node.merged_nodes.Add(old_graph.nodes[i + 1, j + 1]);
+
+                        foreach(Node merged in node.merged_nodes)
+                        {
+                            merged.has_been_merged = true;
+                            merged.merged_supernode = node;
+                        }
+
                         graph.nodes[i + 1, j] = node;
                         graph.nodes[i, j + 1] = node;
                         graph.nodes[i + 1, j + 1] = node;
+                        graph.merged_graph[i + 1, j] = node;
+                        graph.merged_graph[i, j + 1] = node;
+                        graph.merged_graph[i + 1, j + 1] = node;
+                        graph.merged_graph[i, j] = node;
                         old_graph.nodes[i + 1, j] = node;
                         old_graph.nodes[i, j + 1] = node;
                         old_graph.nodes[i + 1, j + 1] = node;

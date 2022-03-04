@@ -42,7 +42,7 @@ public class GraphSTC
                     {
                         newEdge.Source = node;
                         newEdge.Destination = neighbour;
-                        newEdge.Weight = ManhattenDistance(neighbour.worldPosition, start_pos);
+                        newEdge.Weight = ManhattenDistance(node.worldPosition, neighbour.worldPosition);
                         if (Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) >= 1.9f && Mathf.Abs(node.i - neighbour.i) + Mathf.Abs(node.j - neighbour.j) <= 2.5f)
                         {
                             newEdge.Weight *= 100;
@@ -79,11 +79,24 @@ public class GraphSTC
 
         //Create adjency matrix
         this.adj_matrix = new float[this.VerticesCount, this.VerticesCount];
+
+        for(int i = 0; i<VerticesCount; i++)
+        {
+            for(int j = 0; j<VerticesCount; j++)
+            {
+                adj_matrix[i, j] = -1;
+            }
+        }
+
+
         foreach(Edge edge in EdgeList)
         {
             int u = System.Array.IndexOf(this.VertexArray, edge.Source);
             int v = System.Array.IndexOf(this.VertexArray, edge.Destination);
             this.adj_matrix[u, v] = edge.Weight;
+            if (this.adj_matrix[v, u] == -1)
+                this.adj_matrix[v, u] = edge.Weight;
+
         }
     }
 

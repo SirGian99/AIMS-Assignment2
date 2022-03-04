@@ -420,6 +420,8 @@ public class PathFinder : MonoBehaviour
 
     public static Orientation getOrientation(Node source, Node destination)
     {
+        
+
         if (source.worldPosition.x == destination.worldPosition.x)
         {
             return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
@@ -427,6 +429,18 @@ public class PathFinder : MonoBehaviour
         if (source.worldPosition.z == destination.worldPosition.z)
         {
             return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
+        }
+
+        if (!source.is_supernode && destination.is_supernode)
+        {
+            if(Mathf.Abs(source.j - destination.j) < 2)
+            {
+                return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
+            }
+            if(Mathf.Abs(source.i - destination.i) < 2)
+            {
+                return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
+            }
         }
 
         if (source.worldPosition.x > destination.worldPosition.x)
@@ -527,9 +541,9 @@ public class PathFinder : MonoBehaviour
         Node next;
         if (start.children.Count == 0 || start.children_to_visit == 0)
         {
-            if (start.is_supernode)
+            if (start.is_supernode && start.children.Count == 0)
             {
-                return null; //means that you have to do 2 left turns and then go backward
+                return null; //means that you are a leaf-supernode so you have to do 2 left turns and then go backward
             }
             else
             {
@@ -575,12 +589,19 @@ public class PathFinder : MonoBehaviour
 
 
 
-    public static Node get_starting_node(Vector3 start_position, int car_index, Graph original_graph, float heading, ref List<Node> path)
+    public static Node get_starting_node(Vector3 start_position, int car_index, Graph original_graph, Graph graph, float heading, ref List<Node> path)
     {
         Node initial_node = original_graph.getNodeFromPoint(start_position);
         Node to_return=null;
         if (initial_node.assigned_veichle == car_index)
-            return initial_node;
+        {
+            to_return = graph.nodes[initial_node.i, initial_node.j];
+            if(to_return == null)//means that the node has been merged
+            {
+                to_return = graph.merged_graph[initial_node.i, initial_node.j];
+            }
+            return to_return;
+        }
         else
         {
             int range = 0;
@@ -606,6 +627,15 @@ public class PathFinder : MonoBehaviour
                 }
                 range++;
             }
+
+            int i_toreturn = to_return.i;
+            int j_toreturn = to_return.j;
+            to_return = graph.nodes[i_toreturn, j_toreturn];
+            if (to_return == null)//means that the node has been merged
+            {
+                to_return = graph.merged_graph[i_toreturn, j_toreturn];
+            }
+
             return to_return;
         }
     }
