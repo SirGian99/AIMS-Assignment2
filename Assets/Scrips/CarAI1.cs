@@ -51,7 +51,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private void Start()
         {
             // Initialize Variables
-            Time.timeScale = 1;
+            Time.timeScale = 10;
             driveTimer = 0f;
             max_speed = 20;
             acceleration = 1f;
@@ -1157,7 +1157,7 @@ namespace UnityStandardAssets.Vehicles.Car
             if (my_path != null)
             {
                 Gizmos.color = Color.black;
-                for (int i = 0; i < my_path.Count - 1; ++i)
+                for (int i = path_index; i < my_path.Count - 1; ++i)
                 {
                     Gizmos.color = colors[i/2 % colors.Length];
                     Gizmos.DrawLine(my_path[i], my_path[i + 1]);
