@@ -24,6 +24,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public GraphSTC map;
         public Graph subgraph;
         public DARP_controller darp;
+        private CarConfigSpace ObstacleSpace;
 
 
         // Variables for Players and Turrets
@@ -33,29 +34,36 @@ namespace UnityStandardAssets.Vehicles.Car
 
         // Variables for path & driving
         private float acceleration, max_speed;
-        private bool MazeComplete;
-        private float time;
-        private Vector3 start_pos, goal_pos;
+        private bool MazeComplete, PlayerCrashed;
+        private float mazeTimer, driveTimer, stuckTimer, recoveryTime;
+        private float recoverySteer;
+        private Vector3 start_pos, goal_pos, previous_pos;
         private int path_index;
         private List<Vector3> my_path;
         private Node starting_node;
         private List<Node> path_to_starting_node = new List<Node>();
         private List<Vector3> final_path = new List<Vector3>();
-
-        //Temp
         private Edge[] min_tree;
+        enum car_state {drive, front_crash, back_crash};
+        private car_state car_status;
 
 
         private void Start()
         {
             // Initialize Variables
             Time.timeScale = 1;
-            time = 0;
+            driveTimer = 0f;
             max_speed = 20;
             acceleration = 1f;
             MazeComplete = false;
+            mazeTimer = 0f;
             path_index = 1;
             gunRange = 10f;
+            car_status = car_state.drive;
+            stuckTimer = 0f;
+            PlayerCrashed = false;
+            recoveryTime = 0.7f;
+            recoverySteer = 0.45f;//45 degrees gives best result
 
 
             // Initialize Car and Terrain
@@ -63,6 +71,8 @@ namespace UnityStandardAssets.Vehicles.Car
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
             start_pos = terrain_manager.myInfo.start_pos;
             rigidbody = GetComponent<Rigidbody>();
+            // Initialize ConfigSpace
+            CreateObstacleSpace();
 
             // Construct Terrain Graph
             int x_scale = terrain_manager.myInfo.x_N;
@@ -106,17 +116,9 @@ namespace UnityStandardAssets.Vehicles.Car
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos);
-            Debug.Log("Car " + CarNumber + " Compoents: " + GraphComponents(map));
-            if(GraphComponents(map)!=1)
-            {
-                List<Node> VertexList = SpiltGraph(map, true);
-                //Search neighbour index
-
-                //Merge Graph
-
-            }
-
+            Debug.Log("Car " + CarNumber + " Components: " + GraphComponents(map));
             graph = subgraph;
+            
 
             //TODO must update the assigned veichle value in each node in the original graph
             darp.update_assigned_nodes(original_graph);
@@ -144,43 +146,45 @@ namespace UnityStandardAssets.Vehicles.Car
                 final_path.Add(n.worldPosition);
             }
             final_path.AddRange(my_path);
+
+            // ADD CURVES to PATH
+
             my_path = final_path;
 
-        }
+         }
 
 
         private void FixedUpdate()
         {
-            /*
+            mazeTimer += Time.deltaTime;
             enemies = GameObject.FindGameObjectsWithTag("Enemy");
-
-            // this is how you access information about the terrain
-            int i = terrain_manager.myInfo.get_i_index(transform.position.x);
-            int j = terrain_manager.myInfo.get_j_index(transform.position.z);
-            float grid_center_x = terrain_manager.myInfo.get_x_pos(i);
-            float grid_center_z = terrain_manager.myInfo.get_z_pos(j);
-
-            Debug.DrawLine(transform.position, new Vector3(grid_center_x, 0f, grid_center_z));
+            Debug.Log("Enemies remaining: " + enemies.Length + " Time Elapsed: " + mazeTimer);
 
             // Drive Car
-            if (!MazeComplete)
+            if (!MazeComplete) 
             {
-                time += Time.deltaTime;
                 path_index = DriveCar(my_path, m_Car, path_index);
 
-                if (m_Car.transform.position == goal_pos)
+                //Check if all enemies killed for maze completion
+                if (enemies.Length <= 0 || path_index >= my_path.Count)
                 {
                     MazeComplete = true;
+                    Debug.Log("Car " + CarNumber + "Path Completed in " + mazeTimer);
                 }
             }
             else
             {
-                m_Car.Move(0f, 0f, 0f, 1);
-                Debug.Log("Path completed for Player " + time);
+                // Do nothing for now - wait for others to finish
+                // How to utilise this extra time???
 
             }
-            */
 
+            // Exit Game logic
+            if(enemies.Length <= 0)
+            {
+                Debug.Log("All enemies killed in " + mazeTimer + " Exiting Game...");
+                UnityEditor.EditorApplication.isPlaying = false;
+            }
         }
 
 
@@ -190,7 +194,7 @@ namespace UnityStandardAssets.Vehicles.Car
             Edge[] MinSTC = Prim_STC(graph, starting_node);
             List<Vector3> path = null;
 
-            //if(CarNumber==1)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
+            //if(CarNumber==2)//TODO TODO TODO TODO TODO TODO USE THIS ONLY FOR DEBUGGING
             path = ComputePath(graph, MinSTC, car_position, starting_node);
 
             return path;
@@ -513,9 +517,6 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
 
-
-        // MAIN FUNC: Separate terrain into different areas
-
         // Sub-Func: Kurskal Algorithm to find number of compoenets in graph
         public int GraphComponents(GraphSTC graph)
         {
@@ -642,8 +643,6 @@ namespace UnityStandardAssets.Vehicles.Car
 
             return result;
         }
-
-        // Sub-Func: Find Closest neighbour
 
 
         // MAIN FUNC: Prims Algorithm to find minimum spanning tree
@@ -792,8 +791,7 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
-
-        // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree
+        // MAIN FUNC: Kurskal Algorithm to find minimum spanning tree - NOT USED
         public Edge[] Kruskal_STC(GraphSTC graph)
         {
             int verticesCount = graph.VerticesCount;
@@ -874,7 +872,7 @@ namespace UnityStandardAssets.Vehicles.Car
             return result;
         }
 
-        // Sub-Func: Identify parent of node a in Subset for kurskal's
+        // Sub-Func: Identify parent of node a in Subset for kurskal's 
         private Node Find(Subset[] subsets, Node vertex, int k, Node[] vertex_dict)
         {
             if (subsets[k].Parent != vertex)
@@ -911,85 +909,144 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
+        // MAIN FUNC: To create obstacle space
+        private void CreateObstacleSpace()
+        {
+            //Obstacle Sapce
+            Quaternion carRotation = m_Car.transform.rotation;
+            m_Car.transform.rotation = Quaternion.identity;
+            ObstacleSpace = new CarConfigSpace();
+            BoxCollider carCollider = GameObject.Find("ColliderBottom").GetComponent<BoxCollider>();
+            ObstacleSpace.BoxSize = carCollider.transform.TransformVector(carCollider.size);
+            m_Car.transform.rotation = carRotation;
+        }
+
+
         // MAIN FUNC: Car Drive
         public int DriveCar(List<Vector3> player_path, CarController player_Car, int player_pathIndex)
         {
             Vector3 player_waypoint = player_path[player_pathIndex];
-            int brake = 0;
-            int handBrake = 0;
-            float car_steer, car_acc;
-            bool MazeComplete = false;
+            float car_steer, car_acc, car_steer_next;
 
             //find steering needed to get to next point
             car_steer = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
-
-            // if turn is too small, don't steer
-            if (Mathf.Abs(car_steer) < 0.2f)
+            car_acc = Accelerate(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
+            car_steer_next = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_path[(player_pathIndex + 1) % player_path.Count]);
+            // Do opposite turn if next next steer is in opposte
+            if (Math.Abs(car_steer_next) > 0.3f && Math.Abs(car_steer) < 0.3f)
             {
-                car_steer = 0;
+                car_steer = -car_steer_next;
             }
 
-            // if turn is too big, brake to turn easily & don't accelerate
-            if (Mathf.Abs(car_steer) > 0.8f && player_Car.CurrentSpeed > max_speed / 10)
+            // DRIVE BLOCK
+            if (!PlayerCrashed)
             {
-                car_acc = 0;
-                if (player_Car.CurrentSpeed > max_speed / 5)
+                driveTimer += Time.deltaTime;
+
+                //Check if car stuck and not at starting pointing
+                if (driveTimer >= stuckTimer && Vector3.Distance(start_pos, player_Car.transform.position) > 0 && path_index > 10)
                 {
-                    handBrake = 1;
+                    driveTimer = 0;
+                    //Debug.Log("Crash pos: " + Vector3.Distance(previous_pos, player_Car.transform.position));
+                    //check: car not moved very much from previous position
+                    if (Vector3.Distance(previous_pos, player_Car.transform.position) < 0.05f)
+                    {
+                        PlayerCrashed = true;
+                        // check if obstacle in front of car
+                        if (Physics.BoxCast(player_Car.transform.position,
+                            new Vector3(ObstacleSpace.BoxSize.x / 2, ObstacleSpace.BoxSize.y / 2, 0.5f),
+                            player_Car.transform.forward,
+                            Quaternion.LookRotation(player_Car.transform.forward),
+                            ObstacleSpace.BoxSize.z / 2))
+                        {
+                            car_status = car_state.front_crash;
+                        }
+                        else
+                        {
+                            car_status = car_state.back_crash;
+                        }
+                        /*
+                        else if(Physics.BoxCast(player_Car.transform.position,
+                            new Vector3(ObstacleSpace.BoxSize.x / 2, ObstacleSpace.BoxSize.y / 2, 0.5f),
+                            Quaternion.AngleAxis(0, Vector3.down) * player_Car.transform.forward,
+                            Quaternion.LookRotation(Quaternion.AngleAxis(0, Vector3.down) * player_Car.transform.forward),
+                            ObstacleSpace.BoxSize.z / 2))
+                        {
+                            car_status = car_state.back_crash;
+                        }
+                        else
+                        {
+                            PlayerCrashed = false;
+                            car_status = car_state.drive;
+                        }*/
+                    }
+                    else
+                    {
+                        // update previous car position
+                        previous_pos = player_Car.transform.position;
+                    }
+                }
+
+
+                // if current speed is max, then don't accelerate
+                if (player_Car.CurrentSpeed >= max_speed)
+                {
+                    car_acc = 0;
+                }
+                // if acceleration is reverse, apply backwards turns
+                if (car_acc < 0)
+                {
+                    player_Car.Move(-car_steer, 0, car_acc * acceleration, 0);
                 }
                 else
                 {
-                    handBrake = 0;
+                    player_Car.Move(car_steer, car_acc * acceleration, 0, 0);
                 }
+
             }
-            // apply acceleration to get to next point
+            // CRASH RECOVERY BLOCK
             else
             {
-                car_acc = Accelerate(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
-                handBrake = 0;
-                // slow down towards end
-                //if (path_index > (player_path.Count - 10))
-                //{
-                //    acceleration = acceleration * 0.2f;
-                //}
-            }
-            // addtional checks
-            if (player_pathIndex < player_path.Count - 1)
-            {
-                int check = Mathf.Min(3 + (int)(player_Car.CurrentSpeed * 1.6f * 1.6f * player_Car.CurrentSpeed / 500), player_path.Count - 1 - player_pathIndex);
-                for (int i = 1; i <= check; ++i)
-                {
-                    float steer_check = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_path[player_pathIndex + i]);
-                    if (Mathf.Abs(steer_check) > 0.8f && (player_Car.CurrentSpeed * 1.6f * 1.6f * player_Car.CurrentSpeed)
-                        >= Vector3.Distance(player_Car.transform.position, player_path[player_pathIndex + i]) * 250 * 0.8f)
+                stuckTimer += Time.deltaTime;
+
+                // immediately drive away from crash position
+                if (stuckTimer <= recoveryTime && Math.Abs(car_steer) > recoverySteer)
+                {      
+                    //reverse car if crashed in front
+                    if(car_status == car_state.front_crash)
                     {
-                        car_acc = 0;
-                        brake = 1;
-                        break;
+                        //Debug.Log("Front Crash recovery logic " + "Steer: " + car_steer + "Time: " + stuckTimer);
+                        player_Car.Move(-car_steer, 0, -acceleration, 0);
+                        // switch up crash direction if recovery delayed
+                        if(stuckTimer > recoveryTime/2 && PlayerCrashed)
+                        {
+                            car_status = car_state.back_crash;
+                            //Debug.Log("Back Crash recovery logic " + "Steer: " + car_steer + "Time: " + stuckTimer);
+                            player_Car.Move(car_steer, acceleration, 0, 0);
+                        }
+                    }
+                    //drive forward if crashed while reverse drive
+                    else
+                    {
+                        //Debug.Log("Back Crash recovery logic " + "Steer: " + car_steer + "Time: " + stuckTimer);
+                        player_Car.Move(car_steer, car_acc * acceleration, 0, 0);
                     }
                 }
+                else
+                {
+                    // reset to drive mode from recovery
+                    stuckTimer = 0;
+                    car_status = car_state.drive;
+                    PlayerCrashed = false;
+                }
             }
-            // if current speed is max, then don't accelerate
-            if (player_Car.CurrentSpeed >= max_speed)
-            {
-                car_acc = 0;
-            }
-
-            // if acceleration is reverse, apply backwards turns
-            if (car_acc < 0)
-            {
-                player_Car.Move(-car_steer, brake, car_acc * acceleration, handBrake);
-            }
-            else
-            {
-                player_Car.Move(car_steer, car_acc * acceleration, -brake, handBrake);
-            }
-
-            if (Vector3.Distance(player_Car.transform.position, player_waypoint) <= 5 + player_Car.CurrentSpeed / 40)
+            
+            //update to new path index
+            if (Vector3.Distance(player_Car.transform.position, player_waypoint) <= 5f)
             {
                 player_pathIndex = Mathf.Min(player_pathIndex + 1, player_path.Count - 1);
             }
-
+            
             return player_pathIndex;
         }
 
@@ -1017,8 +1074,6 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
 
-
-            
 
             if (graph != null)
                 {
