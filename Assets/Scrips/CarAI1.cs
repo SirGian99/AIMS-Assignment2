@@ -71,7 +71,6 @@ namespace UnityStandardAssets.Vehicles.Car
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
             start_pos = terrain_manager.myInfo.start_pos;
             rigidbody = GetComponent<Rigidbody>();
-            
             // Initialize ConfigSpace
             CreateObstacleSpace();
 
@@ -83,17 +82,22 @@ namespace UnityStandardAssets.Vehicles.Car
             float x_unit = x_len / x_scale;
             x_unit = 1.4142f * gunRange;
             float z_unit = x_unit;
+            //Debug.Log("x_scale: " + x_scale + " z_scale: " + z_scale);
             x_scale = x_scale * ((int)(x_len / x_unit) / x_scale);
             z_scale = z_scale * ((int)(z_len / z_unit) / z_scale);
+            
+
             //i want x_unit and z_unit to be √2r, where r is the range of the gun.
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
             original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
+            //Debug.Log("Walkable nodes: " + graph.walkable_nodes);
+            //Debug.Log("Non walk nodes: " + graph.non_walkable_nodes);
 
 
             // Get Array of Friends and Eniemies
             friends = GameObject.FindGameObjectsWithTag("Player");
-            Vector3[] initial_positions = new Vector3[friends.Length];
+             Vector3[] initial_positions = new Vector3[friends.Length];
             int i = 0;
             foreach(GameObject friend in friends)
             {
@@ -108,46 +112,46 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
 
-            // DARP Algorithm
-            // Get subgraph:
+            // Plan your path here
             darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos);
+            Debug.Log("Car " + CarNumber + " Components: " + GraphComponents(map));
             graph = subgraph;
+            
+
             //TODO must update the assigned veichle value in each node in the original graph
             darp.update_assigned_nodes(original_graph);
             starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
 
-            // Get min tree:
-            min_tree = Prim_STC(map, starting_node);
-
-            // Get path from min_tree:
-            int upsampling_factor = 4;
             my_path = new List<Vector3>();
-            //my_path = CreateDronePath(map, transform.position, starting_node);
-            my_path = ComputePath(map, min_tree, transform.position, starting_node);
-            my_path = PathFinder.pathUpsampling(my_path, upsampling_factor);
-            my_path = PathFinder.pathSmoothing(my_path, 0.6f, 0.2f, 1E-09f);
+            int upsampling_factor = 4;
 
-            // Get path to starting node
             if (path_to_starting_node.Count > 0)
             {
                 path_to_starting_node = PathFinder.pathUpsampling(path_to_starting_node, upsampling_factor);
                 path_to_starting_node = PathFinder.pathSmoothing(path_to_starting_node, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
             }
 
-            // Combine both paths
-            foreach (Node n in path_to_starting_node)
+
+
+            my_path = CreateDronePath(map, transform.position, starting_node);
+            //min_tree = STC(map);
+            min_tree = Prim_STC(map, starting_node);
+            my_path = PathFinder.pathUpsampling(my_path, upsampling_factor);
+            my_path = PathFinder.pathSmoothing(my_path, 0.6f, 0.2f, 1E-09f);
+
+            foreach(Node n in path_to_starting_node)
             {
                 final_path.Add(n.worldPosition);
             }
             final_path.AddRange(my_path);
 
-            // TODO : ADD CURVES to PATH
+            // ADD CURVES to PATH
 
             my_path = final_path;
 
-        }
+         }
 
 
         private void FixedUpdate()
