@@ -507,42 +507,8 @@ namespace UnityStandardAssets.Vehicles.Car
             return path;
         }
 
-        // Sub-Func: Get starting orientation for computing path
-        private Orientation get_initial_orientation(Vector3 initial_pos, Vector3 arriving_pos)
-        {
-            Vector3 direction = (arriving_pos - initial_pos).normalized;
 
-            float acos = Mathf.Acos(direction.x); //between 0 and 180
-            if (direction.z < 0)
-            {
-                acos = 2 * Mathf.PI - acos;
-            }
-
-            acos = Mathf.Rad2Deg * acos;
-
-            int direction_angle = (int)acos / 45;
-            Debug.Log("Angle: " + acos + "Direction: " + direction_angle);
-
-
-            switch (direction_angle)
-            {
-                case 0:
-                case 7:
-                    return Orientation.R;
-                case 1:
-                case 2:
-                    return Orientation.UU;
-                case 3:
-                case 4:
-                    return Orientation.L;
-                case 5:
-                case 6:
-                    return Orientation.DD;
-                default:
-                    return Orientation.UU;
-            }
-
-        }
+        //private List<Vector3> ComputeMinTreePath()
 
         // MAIN FUNC: Prims Algorithm to find minimum spanning tree
         public Edge[] Prim_STC(GraphSTC graph, Node starting_node)
@@ -1041,8 +1007,41 @@ namespace UnityStandardAssets.Vehicles.Car
 
         }
 
+        private Orientation get_initial_orientation(Vector3 initial_pos, Vector3 arriving_pos)
+        {
+            Vector3 direction = (arriving_pos - initial_pos).normalized;
 
-        
+            float acos = Mathf.Acos(direction.x); //between 0 and 180
+            if (direction.z < 0)
+            {
+                acos = 2 * Mathf.PI - acos;
+            }
+
+            acos = Mathf.Rad2Deg * acos;
+
+            int direction_angle = (int)acos / 45;
+            Debug.Log("Angle: " + acos + "Direction: " + direction_angle);
+
+
+            switch (direction_angle)
+            {
+                case 0:
+                case 7:
+                    return Orientation.R;
+                case 1:
+                case 2:
+                    return Orientation.UU;
+                case 3:
+                case 4:
+                    return Orientation.L;
+                case 5:
+                case 6:
+                    return Orientation.DD;
+                default:
+                    return Orientation.UU;
+            }
+
+        }
 
     }
 }
