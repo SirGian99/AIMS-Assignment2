@@ -42,7 +42,7 @@ namespace UnityStandardAssets.Vehicles.Car
             // Initialize Variables
             Time.timeScale = 1;
             driveTimer = 0f;
-            max_speed = 150f;
+            max_speed = 130f;
             acceleration = 1f;
             MazeComplete = false;
             mazeTimer = 0f;
@@ -53,7 +53,7 @@ namespace UnityStandardAssets.Vehicles.Car
             recoverySteer = 0.45f;//45 degrees gives best result
             nextwaypoint = Vector3.up;
             angle = 90;
-            spacing = 30;
+            spacing = 35;
             checkDensity = 1;
             checkRadius = 1f;
             x1 = GameObject.FindWithTag("Leader").transform.position;
@@ -92,9 +92,11 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             mazeTimer += Time.deltaTime;
             enemies = GameObject.FindGameObjectsWithTag("Enemy");
-            //Debug.Log("Enemies remaining: " + enemies.Length + " Time Elapsed: " + mazeTimer);
-
-
+            if(CarNumber == 1)
+            {
+                Debug.Log("Enemies remaining: " + enemies.Length + " Time Elapsed: " + mazeTimer);
+            }
+            
             // Drive Car
             if (!MazeComplete)
             {
@@ -106,16 +108,12 @@ namespace UnityStandardAssets.Vehicles.Car
                 pathWidth.Add(narrowpath);
 
                 // Calculate required acceleration:
-                acceleration = (v2 - v1)/ Time.deltaTime;
-                acceleration *= 10f;
-                if (Vector3.Distance(m_Car.transform.position, waypoint) > 1f)
-                {
-                    acceleration *= 5f;
-                }
-                //Debug.Log("Car: " + CarNumber + " speed- " + v2 + " acc- " + acceleration);
+                acceleration = ((v2 - v1) / Time.deltaTime);
+                acceleration *= Vector3.Distance(m_Car.transform.position, waypoint) * max_speed * 10f;
 
                 // Execute car control
                 DriveCar(m_Car, waypoint, nextwaypoint);
+                //ImprovedDriveCar(m_Car, waypoint, nextwaypoint);
                 //path_index = DriveCarwithCompetePath(my_path, m_Car, path_index);
 
                 //Check if all enemies killed for maze completion or if leader stopped
@@ -131,7 +129,7 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
             // Exit Game logic
-            if (enemies.Length <= 0 || MazeComplete)
+            if (enemies.Length <= 0)
             {
                 Debug.Log("Leader stopped or All enemies killed in " + mazeTimer + " Exiting Game...");
                 UnityEditor.EditorApplication.isPlaying = false;
@@ -146,8 +144,9 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             Transform leader = GameObject.FindWithTag("Leader").transform;
 
-            float totalSpacing = spacing, currentSpacing;
+            float totalSpacing = spacing, currentSpacing, leftSpacing, rightSpacing;
             int levels = 10;
+            bool left, right;
             List<bool> levelIntensity = new List<bool>(new bool[levels]);
             float scale;
 
@@ -159,6 +158,8 @@ namespace UnityStandardAssets.Vehicles.Car
 
             // Check if path in front of leader is narrow or not and assign spacing
             narrowpath = false;
+            left = false;
+            right = false;
             for (int i = -checkDensity; i <= checkDensity; ++i)
             {
                 for (int j = -checkDensity; j <= checkDensity; ++j)
@@ -175,21 +176,33 @@ namespace UnityStandardAssets.Vehicles.Car
                             if(Obstacle(x,z))
                             {
                                 levelIntensity[(int)(k * levels)] = true;
+                                if (refAngle >= -180 && refAngle < 0)
+                                {
+                                    left = true;
+
+                                }
+                                else
+                                {
+                                    right = true;
+                                }
                                 //Debug.Log("Level: " + (k * levels) + " k " + k);
                             }
                         }
                     }
                 }
             }
-            
+
             //Debug.Log("Narrow Path dectected  = " + narrowpath);
+            // Do sparse spacing
+            currentSpacing = totalSpacing;
+            leftSpacing = currentSpacing;
+            rightSpacing = currentSpacing;
+            scale = 2f;
             // Adjust position based on collision status
             if (narrowpath)
             {
                 //Debug.Log("L1: " + L1 + " L2: " + L2 + " L3: " + L3 + " L4: " + L4);
                 // Do tight spacing
-                currentSpacing = totalSpacing / 2;
-                scale = speed / 15f;
                 for (int i = levels-1; i >= 0; i--)
                 {
                     if(levelIntensity[i] == true)
@@ -197,15 +210,20 @@ namespace UnityStandardAssets.Vehicles.Car
                         currentSpacing = totalSpacing / ((levels - i + 1)*3);
                         // Debug.Log("Level: " + i + " spacing " + (levels - i + 1) * 2);
                         scale = speed / ((levels - i + 1) * 4);
+                        //rightSpacing = totalSpacing / 2;
+                        //leftSpacing = totalSpacing / 2;
+                        if (left)
+                        {
+                            leftSpacing = currentSpacing;   
+                        }
+                        if(right)
+                        {
+                            rightSpacing = currentSpacing;
+                        }
+
                     }
                 }
                 //Debug.Log("Current: " + currentSpacing + " scale " + scale);
-            }
-            else
-            {
-                // Do sparse spacing
-                currentSpacing = totalSpacing;
-                scale = 2.5f;
             }
             
 
@@ -213,16 +231,16 @@ namespace UnityStandardAssets.Vehicles.Car
             switch (CarNumber)
             {
                 case 1:
-                    intermediate = Quaternion.AngleAxis(angle, leader.up) * -leader.forward * currentSpacing;
+                    intermediate = Quaternion.AngleAxis(angle, leader.up) * -leader.forward * leftSpacing;
                     break;
                 case 2:
-                    intermediate = Quaternion.AngleAxis(angle / 2, leader.up) * -leader.forward * currentSpacing / 2;
+                    intermediate = Quaternion.AngleAxis(angle/2, leader.up) * -leader.forward * leftSpacing / 2;
                     break;
                 case 3:
-                    intermediate = Quaternion.AngleAxis(-angle, leader.up) * -leader.forward * currentSpacing;
+                    intermediate = Quaternion.AngleAxis(-angle, leader.up) * -leader.forward * rightSpacing;
                     break;
                 case 4:
-                    intermediate = Quaternion.AngleAxis(-angle / 2, leader.up) * -leader.forward * currentSpacing / 2;
+                    intermediate = Quaternion.AngleAxis(-angle/2, leader.up) * -leader.forward * rightSpacing / 2;
                     break;
                 default:
                     intermediate = Quaternion.AngleAxis(-180, leader.up) * -leader.forward * currentSpacing;
@@ -261,10 +279,11 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
-        // MAIN FUNC: Car Drive
+        // MAIN FUNC: Car Drive with just waypoints
         public void DriveCar(CarController player_Car, Vector3 player_waypoint, Vector3 player_nextwaypoint)
         {
             float car_steer, car_acc, car_steer_next;
+            int brake = 0, handBrake = 0;
 
             //find steering needed to get to next point
             car_steer = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
@@ -275,7 +294,24 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 car_steer = -car_steer_next;
             }
-
+            // if turn is too small, don't steer
+            if (Mathf.Abs(car_steer) < 0.2f)
+            {
+                car_steer = 0;
+            }
+            // if turn is too big, brake to turn easily & don't accelerate
+            if (Mathf.Abs(car_steer) > 0.8f && player_Car.CurrentSpeed > max_speed / 10)
+            {
+                car_acc = 0;
+                if (player_Car.CurrentSpeed > max_speed / 5)
+                {
+                    handBrake = 1;
+                }
+                else
+                {
+                    handBrake = 0;
+                }
+            }
             // DRIVE BLOCK
             if (!PlayerCrashed)
             {
@@ -289,7 +325,7 @@ namespace UnityStandardAssets.Vehicles.Car
                     //check: car not moved very much from previous position
                     if (Vector3.Distance(previous_pos, player_Car.transform.position) < 0.05f)
                     {
-                        //PlayerCrashed = true; ///// SUPPRESS CRASH RECOVERY FOR NOW
+                        PlayerCrashed = true; ///// SUPPRESS CRASH RECOVERY FOR NOW
                         // check if obstacle in front of car
                         if (Physics.BoxCast(player_Car.transform.position,
                             new Vector3(ObstacleSpace.BoxSize.x / 2, ObstacleSpace.BoxSize.y / 2, 0.5f),
@@ -334,11 +370,11 @@ namespace UnityStandardAssets.Vehicles.Car
                 // if acceleration is reverse, apply backwards turns
                 if (car_acc < 0)
                 {
-                    player_Car.Move(-car_steer, 0, car_acc * acceleration, 0);
+                    player_Car.Move(-car_steer, brake, car_acc * acceleration, handBrake);
                 }
                 else
                 {
-                    player_Car.Move(car_steer, car_acc * acceleration, 0, 0);
+                    player_Car.Move(car_steer, car_acc * acceleration, -brake, handBrake);
                 }
 
             }
@@ -381,7 +417,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
         }
 
-        // MAIN FUNC: Car Drive
+        // MAIN FUNC: Car Drive with complete path
         public int DriveCarwithCompetePath(List<Vector3> player_path, CarController player_Car, int player_pathIndex)
         {
             Vector3 player_waypoint = player_path[player_pathIndex];
@@ -518,7 +554,7 @@ namespace UnityStandardAssets.Vehicles.Car
             return Mathf.Clamp(angle, -m_Car.m_MaximumSteerAngle, m_Car.m_MaximumSteerAngle) / m_Car.m_MaximumSteerAngle;
         }
 
-        //Sub-Func: To find accleration for car
+        // Sub-Func: To find accleration for car
         private float Accelerate(Vector3 position, float theta, Vector3 target)
         {
             Vector3 direction = Quaternion.Euler(0, theta, 0) * Vector3.forward;
@@ -527,10 +563,6 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
-
-
-        
-
         //MAIN FUNC: Visualise
         private void OnDrawGizmos()
         {
@@ -538,16 +570,13 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 return;
             }
-            //float car_length = 4.47f, car_width = 2.43f, car_high = 2f;
-            //float scale = 1f;
-            //Vector3 cube_size = new Vector3(car_width * scale, car_high * scale, car_length * scale);
 
             Gizmos.color = Color.blue;
 
             Transform leader = GameObject.FindWithTag("Leader").transform;
             Gizmos.DrawSphere(leader.position + new_pos, 1f);
-            Gizmos.color = Color.red;
-            Gizmos.DrawSphere(leader.position + intermediate, 1f);
+            //Gizmos.color = Color.red;
+            //Gizmos.DrawSphere(leader.position + intermediate, 1f);
 
             //Show the path to the goal
             if (my_path != null)
