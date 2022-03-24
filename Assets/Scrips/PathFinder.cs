@@ -501,16 +501,43 @@ public class PathFinder : MonoBehaviour
             return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
         }
 
+        if(!source.is_supernode && destination.is_supernode)
+        {
+            if (source.i < destination.i)
+                return Orientation.R;
+            if (source.i > destination.i + 1)
+                return Orientation.L;
+            if (source.j < destination.j)
+                return Orientation.UU;
+            if (source.j > destination.j+1)
+                return Orientation.DD;
+            return Orientation.UL;
+        }
+
+        if (source.is_supernode && !destination.is_supernode)
+        {
+            if (source.i +1 < destination.i)
+                return Orientation.R;
+            if (source.i > destination.i)
+                return Orientation.L;
+            if (source.j +1< destination.j)
+                return Orientation.UU;
+            if (source.j > destination.j)
+                return Orientation.DD;
+            return Orientation.UL;
+        }
+
         if (!source.is_supernode && destination.is_supernode || source.is_supernode && !destination.is_supernode)
         {
-            if(Mathf.Abs(source.j - destination.j) < 2 && source.i != destination.i)
-            {
-                return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
-            }
-            if(Mathf.Abs(source.i - destination.i) < 2 && source.j != destination.j)
+            if (Mathf.Abs(source.i - destination.i) < 2 && source.j != destination.j)
             {
                 return source.worldPosition.z > destination.worldPosition.z ? Orientation.DD : Orientation.UU;
             }
+            if (Mathf.Abs(source.j - destination.j) < 2 && source.i != destination.i)
+            {
+                return source.worldPosition.x > destination.worldPosition.x ? Orientation.L : Orientation.R;
+            }
+            
         }
 
         if (source.worldPosition.x > destination.worldPosition.x)
