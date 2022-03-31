@@ -14,7 +14,7 @@ public class DARP_controller
     public float fair_share;
 
 
-    public DARP_controller(int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance)
+    public DARP_controller(int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance, float angle = 12)
     {
         this.n_agents = n_agents;
         this.initial_positions = initial_positions;
@@ -27,7 +27,7 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        naive_assignment(12, initial_positions[0]);
+        naive_assignment(angle, initial_positions[0]);
         smooth_areas();
 
     }

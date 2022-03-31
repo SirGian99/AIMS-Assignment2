@@ -59,9 +59,9 @@ namespace UnityStandardAssets.Vehicles.Car
         private void Start()
         {
             // Initialize Variables
-            Time.timeScale = 1;
+            Time.timeScale = 2;
             driveTimer = 0f;
-            max_speed = 10;
+            max_speed = 18;
             acceleration = 1f;
             MazeComplete = false;
             mazeTimer = 0f;
@@ -82,8 +82,8 @@ namespace UnityStandardAssets.Vehicles.Car
             CreateObstacleSpace();
 
             // Construct Terrain Graph
-            int x_scale = terrain_manager.myInfo.x_N*4;
-            int z_scale = terrain_manager.myInfo.z_N*4;
+            int x_scale = terrain_manager.myInfo.x_N*3;
+            int z_scale = terrain_manager.myInfo.z_N*3;
             
             //i want x_unit and z_unit to be √2r, where r is the range of the gun.
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
