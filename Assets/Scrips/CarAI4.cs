@@ -37,6 +37,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private List<bool> pathWidth;
         private bool narrowpath = false;
 
+        private int delay = 20;
         private void Start()
         {
             // Initialize Variables
@@ -53,8 +54,8 @@ namespace UnityStandardAssets.Vehicles.Car
             recoverySteer = 0.45f;//45 degrees gives best result
             nextwaypoint = Vector3.up;
             angle = 90;
-            spacing = 35;
-            checkDensity = 1;
+            spacing = 40;
+            checkDensity = 2;
             checkRadius = 1f;
             x1 = GameObject.FindWithTag("Leader").transform.position;
 
@@ -96,13 +97,20 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 Debug.Log("Enemies remaining: " + enemies.Length + " Time Elapsed: " + mazeTimer);
             }
-            
+
+            if (delay > 0)
+            {
+                delay--;
+                return;
+            }
             // Drive Car
             if (!MazeComplete)
             {
                 // Find new waypoints
                 waypoint = nextwaypoint;
                 nextwaypoint = FormationPoint();
+                nextwaypoint = adjustWaypoint(nextwaypoint);
+
                 my_path.Add(nextwaypoint);
                 leader_path.Add(GameObject.FindWithTag("Leader").transform.position);
                 pathWidth.Add(narrowpath);
@@ -136,7 +144,35 @@ namespace UnityStandardAssets.Vehicles.Car
             }
         }
 
+        private Vector3 adjustWaypoint(Vector3 waypoint)
+        {
+            RaycastHit hit;
+            float range = 100;
 
+            // Cast a sphere wrapping character controller 10 meters forward
+            // to see if it is about to hit anything.
+            Collider[] hitColliders = Physics.OverlapSphere(waypoint, range);
+            Vector3 to_return = waypoint;
+            float distance = float.MaxValue;
+            foreach (var hitCollider in hitColliders)
+            {
+                if(hitCollider.name == "Cube")
+                {
+                    if (Physics.Raycast(waypoint, (hitCollider.transform.position - waypoint).normalized, out hit, range) && (hit.collider.name == "Cube"|| hit.collider.name.ToLower().Contains("car")))
+                    {
+                        Vector3 hitpoint = hit.point;
+                        if (hit.distance < distance)
+                        {
+                            distance = hit.distance;
+                            to_return = Vector3.MoveTowards(hitpoint, waypoint, distance * 1.2f);
+                        }
+                    }
+                }
+
+            }
+            return to_return;
+            
+        }
 
 
         // MAIN FUNC: Follow the leader with spacing
@@ -164,16 +200,21 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 for (int j = -checkDensity; j <= checkDensity; ++j)
                 {
-                    for (float refAngle=-180; refAngle<=180; refAngle=refAngle+10)
+                    for (float refAngle = -180; refAngle <= 180; refAngle = refAngle + 10)
                     {
-                        Vector3 refline = Quaternion.AngleAxis(refAngle, leader.up) * leader.forward * totalSpacing;
-                        for (float k = 0.0f; k <= checkRadius; k=k+0.1f)
+                        float ellipse = .75f;
+                        if (refAngle >= -35 && refAngle <= 35)
+                        {
+                            ellipse = 2.5f;
+                        }
+                        Vector3 refline = Quaternion.AngleAxis(refAngle, leader.up) * leader.forward * ellipse * totalSpacing;
+                        for (float k = 0.0f; k <= checkRadius; k = k + 0.1f)
                         {
                             float x = i + (leader.position + k * refline).x;
                             float z = j + (leader.position + k * refline).z;
                             narrowpath = narrowpath || Obstacle(x, z);
                             //Debug.DrawLine(leader.position, new Vector3(x, 0, z));
-                            if(Obstacle(x,z))
+                            if (Obstacle(x, z))
                             {
                                 levelIntensity[(int)(k * levels)] = true;
                                 if (refAngle >= -180 && refAngle < 0)
@@ -203,20 +244,20 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 //Debug.Log("L1: " + L1 + " L2: " + L2 + " L3: " + L3 + " L4: " + L4);
                 // Do tight spacing
-                for (int i = levels-1; i >= 0; i--)
+                for (int i = levels - 1; i >= 0; i--)
                 {
-                    if(levelIntensity[i] == true)
+                    if (levelIntensity[i] == true)
                     {
-                        currentSpacing = totalSpacing / ((levels - i + 1)*3);
+                        currentSpacing = totalSpacing / ((levels - i + 1) * 3);
                         // Debug.Log("Level: " + i + " spacing " + (levels - i + 1) * 2);
                         scale = speed / ((levels - i + 1) * 4);
                         //rightSpacing = totalSpacing / 2;
                         //leftSpacing = totalSpacing / 2;
                         if (left)
                         {
-                            leftSpacing = currentSpacing;   
+                            leftSpacing = currentSpacing;
                         }
-                        if(right)
+                        if (right)
                         {
                             rightSpacing = currentSpacing;
                         }
@@ -225,7 +266,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
                 //Debug.Log("Current: " + currentSpacing + " scale " + scale);
             }
-            
+
 
             // Find new positions
             switch (CarNumber)
@@ -234,24 +275,23 @@ namespace UnityStandardAssets.Vehicles.Car
                     intermediate = Quaternion.AngleAxis(angle, leader.up) * -leader.forward * leftSpacing;
                     break;
                 case 2:
-                    intermediate = Quaternion.AngleAxis(angle/2, leader.up) * -leader.forward * leftSpacing / 2;
+                    intermediate = Quaternion.AngleAxis(angle / 2, leader.up) * -leader.forward * leftSpacing / 2;
                     break;
                 case 3:
                     intermediate = Quaternion.AngleAxis(-angle, leader.up) * -leader.forward * rightSpacing;
                     break;
                 case 4:
-                    intermediate = Quaternion.AngleAxis(-angle/2, leader.up) * -leader.forward * rightSpacing / 2;
+                    intermediate = Quaternion.AngleAxis(-angle / 2, leader.up) * -leader.forward * rightSpacing / 2;
                     break;
                 default:
                     intermediate = Quaternion.AngleAxis(-180, leader.up) * -leader.forward * currentSpacing;
                     break;
             }
-            
+
             new_pos = Vector3.Lerp(new_pos, intermediate, Time.deltaTime / scale);
 
             return leader.position + new_pos;
         }
-
         //Sub-func: Check if any obstacle
         private bool Obstacle(float x, float z)
         {

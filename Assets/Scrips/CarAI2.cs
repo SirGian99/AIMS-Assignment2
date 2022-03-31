@@ -52,6 +52,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
         private void Start()
         {
+            Time.timeScale = 5;
             int gunRange = 10;
             // get the car controller
             m_Car = GetComponent<CarController>();
