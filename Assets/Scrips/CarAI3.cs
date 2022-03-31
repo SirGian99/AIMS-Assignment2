@@ -48,6 +48,9 @@ namespace UnityStandardAssets.Vehicles.Car
         private car_state car_status;
         private List<Vector3> enemy_positions = new List<Vector3>();
 
+        private List<Node> final_node_path = new List<Node>();
+
+
         private bool backward_crash = false;
         private bool frontal_crash = false;
 
@@ -134,39 +137,70 @@ namespace UnityStandardAssets.Vehicles.Car
             map = new GraphSTC(subgraph, start_pos, enemy_positions);
             graph = subgraph;
             darp.update_assigned_nodes(original_graph);
-            starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
+            
 
-            // Get min tree:
-            min_tree = Prim_STC(map, starting_node);
-            min_tree = PruneTree(min_tree, enemy_positions);
-
-            // Get path from min_tree:
-            int upsampling_factor = 4;
-            my_path = new List<Vector3>();
-            my_path = ComputePath(map, min_tree, transform.position, starting_node, get_initial_orientation(transform.position, starting_node.worldPosition));
-
-            //findPath(original_graph, start_position, current.worldPosition, heading);
-            my_path = PathFinder.pathUpsampling(my_path, upsampling_factor);
-            my_path = PathFinder.pathSmoothing(my_path, 0.6f, 0.2f, 1E-09f);
-
-            // Get path to starting node
-            if (path_to_starting_node.Count > 0)
+            for (int e = 0; e<enemy_positions.Count; e++)
             {
-                path_to_starting_node = PathFinder.pathUpsampling(path_to_starting_node, upsampling_factor);
-                path_to_starting_node = PathFinder.pathSmoothing(path_to_starting_node, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
+
+                if (original_graph.getNodeFromPoint(enemy_positions[e]).assigned_veichle != CarNumber) {
+                    enemy_positions.Remove(enemy_positions[e]);
+                    e--;
+                }
             }
 
-            // Combine both paths
+            starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
+            original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale * 2, z_scale * 2);
+
+            
             foreach (Node n in path_to_starting_node)
             {
                 final_path.Add(n.worldPosition);
+                final_node_path.Add(n);
             }
-            final_path.AddRange(my_path);
 
-            // TODO : ADD CURVES to PATH
 
-            my_path = final_path;
-            my_path = path_deobstacle(my_path, original_graph);
+            Vector3 current_position = starting_node.worldPosition;
+            float heading = (360 - transform.eulerAngles.y + 90) % 360;
+            //compute closest turret
+            int safe_exit = 10;
+            while (enemy_positions.Count > 0)
+            {
+                Vector3 closest_point = new Vector3(0, 0, 0);
+                int min_distance = int.MaxValue;
+                int turret_index=0;
+                List<Node> path_to_closest = new List<Node>();
+                for (int e = 0; e<enemy_positions.Count; e++)
+                {
+                    Vector3 turret = enemy_positions[e];
+                    List<Node> path_to_current = PathFinder.findAstarPath(original_graph, current_position, turret, heading);
+                    if (path_to_current.Count < min_distance)
+                    {
+                        min_distance = path_to_current.Count;
+                        path_to_closest = path_to_current;
+                        turret_index = e;
+                        closest_point = turret;
+                    }
+                }
+                if(CarNumber==2)Debug.Log("Iteration " + (10 - safe_exit) + "closest enemy: " + closest_point);
+                current_position = closest_point;
+                heading = path_to_closest[path_to_closest.Count - 1].heading;
+                final_node_path.AddRange(path_to_closest);
+                enemy_positions.RemoveAt(turret_index);
+                safe_exit--;
+            }
+
+            int upsampling_factor = 4;
+            if (final_node_path.Count > 0)
+            {
+                final_node_path = PathFinder.pathUpsampling(final_node_path, upsampling_factor);
+                final_node_path = PathFinder.pathSmoothing(final_node_path, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
+            }
+
+            my_path = new List<Vector3>();
+            foreach(Node n in final_node_path)
+            {
+                my_path.Add(n.worldPosition);
+            }
 
         }
 
@@ -907,28 +941,28 @@ namespace UnityStandardAssets.Vehicles.Car
                         // remove from array
                         Node destination = leafEdge.Destination;
                         Node source = leafEdge.Source;
-                        if(destination.parent == source)
+                        if (destination.parent == source)
                         {
                             source.children.Remove(destination);
                             destination.parent = destination;
-                            foreach(Node child in destination.children)
+                            foreach (Node child in destination.children)
                             {
-                                Debug.Log("PRUNING"+destination + " has children: " + child);
+                                Debug.Log("PRUNING" + destination + " has children: " + child);
                             }
                         }
-                        else if(source.parent == destination)
+                        else if (source.parent == destination)
                         {
                             Debug.Log("PRUNING Source is the child of destination");
                             destination.children.Remove(source);
                             source.parent = source;
                             foreach (Node child in source.children)
                             {
-                                Debug.Log("PRUNING"+source + " has children: " + child);
+                                Debug.Log("PRUNING" + source + " has children: " + child);
                             }
                         }
                         else
                         {
-                            Debug.Log("ERROR WHILE PRUNING. Source:" + source + "\nSource parent:" + source.parent + "\nDestination:" + destination + "Dest parent:"+destination.parent);
+                            Debug.Log("ERROR WHILE PRUNING. Source:" + source + "\nSource parent:" + source.parent + "\nDestination:" + destination + "Dest parent:" + destination.parent);
                             foreach (Node child in source.children)
                             {
                                 Debug.Log("PRUNING" + source + " has children: " + child);
@@ -1125,75 +1159,21 @@ namespace UnityStandardAssets.Vehicles.Car
             Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
 
 
-            if (graph != null)
+            int col = CarNumber - 1;
+            int k = 0;
+            //foreach(List<Node> path in astar_paths)
+            //{
+
+            foreach (Node node in final_node_path)
             {
+                Gizmos.color = colors[col % colors.Length];
+                Gizmos.DrawCube(node.worldPosition, new Vector3(original_graph.x_unit, 0, original_graph.z_unit) * 0.9f);
+                Gizmos.color = colors[col % colors.Length];
+                Gizmos.color = colors[col + 2 % colors.Length];
 
-                Node currentNode = graph.getNodeFromPoint(transform.position);
-                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
-                Gizmos.color = Color.cyan; // position of car
-                                           //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
-                                           //Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
-                int z = 0;
-                foreach (Node n in graph.nodes) // graph.path 
-                {
-                    if (n != null && (n.assigned_veichle == CarNumber || !n.walkable))
-                    {
-                        int index = darp.assignment_matrix[n.i, n.j];
-
-                        Gizmos.color = colors[index];
-                        if (graph.path != null && graph.path.Contains(n))
-                            Gizmos.color = Color.white;
-
-                        float scale_factor = n.is_supernode ? 1.8f : 0.9f;
-                        Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
-
-                        //This code below draws the neighbours of the bigger nodes
-                        /*if(z <= 300 && n.is_supernode && n.assigned_veichle == CarNumber)
-                        {
-                            foreach(Node neigh in n.neighbours)
-                            {
-                                if (neigh.walkable)
-                                {
-                                    Gizmos.color = Color.black;
-                                    scale_factor = neigh.is_supernode ? 1.8f : 0.9f;
-                                    Gizmos.DrawCube(neigh.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
-                                }
-                            }
-                            z++;
-                        }
-                        */
-
-                    }
-
-                }
-            }
-
-
-            //Show min span tree
-            if (min_tree != null)
-            {
-                Gizmos.color = colors[CarNumber];
-                //Gizmos.color = Color.red;
-                for (int i = 0; i < min_tree.Length - 1; ++i)
-                {
-                    Gizmos.color = colors[CarNumber];
-                    if (min_tree[i].Source != null && min_tree[i].Destination != null)
-                        Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
-                    ;
-
-                }
-            }
-
-
-            //Show the path to the goal
-            if (my_path != null)
-            {
-                Gizmos.color = Color.black;
-                for (int i = path_index; i < my_path.Count - 1; ++i)
-                {
-                    Gizmos.color = colors[i / 2 % colors.Length];
-                    Gizmos.DrawLine(my_path[i], my_path[i + 1]);
-                }
+                if (k < final_node_path.Count - 1)
+                    Gizmos.DrawLine(final_node_path[k].worldPosition, final_node_path[k + 1].worldPosition);
+                k++;
             }
 
 
