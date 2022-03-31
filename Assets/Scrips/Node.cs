@@ -13,6 +13,8 @@ public class Node
     public float heading;
     public int area_id = -1;
     public int assigned_veichle = -1;
+    public int dangerLevel = -1;
+    public int assigned_enemy = -1;
 
     public float gCost;
     public float hCost;

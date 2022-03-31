@@ -6,997 +6,716 @@ using System;
 
 namespace UnityStandardAssets.Vehicles.Car
 {
-	[RequireComponent(typeof(CarController))]
-	public class CarAI5 : MonoBehaviour
-	{
-		private CarController m_Car; // the car controller we want to use
-		public Destructable Health;
-		List<Vector3> Path = new List<Vector3>();
-		public List<Vector3> ShootingPoints = new List<Vector3>();
-		public List<float> HealthVec = new List<float>();
-		public GameObject terrain_manager_game_object;
-		TerrainManager terrain_manager;
-		public GameObject[] friends;
-		public GameObject[] enemies;
-		List<Vector3> SetPoints = new List<Vector3>();
-		List<Vector3> SafePoints = new List<Vector3>();
-		Vector3[,] FreePos;
-		Vector3 NewStart;
-		List<List<int>> my_path = new List<List<int>>();
-		public int[,] DangerMap;
-		Color color2;
-		Color color1;
-		int x_low;
-		int x_high;
-		int x_N;
-		int z_high;
-		int z_low;
-		int z_N;
-		int x_length;
-		int z_length;
-		int x_M;
-		int z_M;
-		int[,] traversability;
-		List<Vector3> car_pos = new List<Vector3>();
-		Vector3 dir = new Vector3(10, 10, 10);
-		public GameObject[] cars;
-
-		Vector3 LastPos;
-		int reverseCount = 0;
-		int StuckCount = 0;
-		bool Stuck = false;
-		List<Vector3> OffPath = new List<Vector3>();
-		int kPath = 0;
-		int f = 0;
-		int Count = 0;
-
-		int leader = 0;
-		int CarIndex = 0;
-		bool NewPath = false;
-		int EnemiesCounter = 0;
-		bool firstTime = true;
+    [RequireComponent(typeof(CarController))]
+    public class CarAI5 : MonoBehaviour
+    {
+        // Variables for Car
+        private CarController m_Car; // the car controller we want to use
+        Vector3 carSize = new Vector3(4.5f, 0.41f, 4.5f);
+        private Rigidbody rigidbody;
+        public int CarNumber;
 
 
-		private void Start()
-		{
-			// get the car controller
-			m_Car = GetComponent<CarController>();
-			Health = GetComponent<Destructable>();
-
-			terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
-
-			x_low = (int)terrain_manager.myInfo.x_low;
-			x_high = (int)terrain_manager.myInfo.x_high;
-			x_N = (int)terrain_manager.myInfo.x_N;
-			z_low = (int)terrain_manager.myInfo.z_low;
-			z_high = (int)terrain_manager.myInfo.z_high;
-			z_N = (int)terrain_manager.myInfo.z_N;
-			x_length = (x_high - x_low);
-			z_length = (z_high - z_low);
-			x_M = x_length / x_N;
-			z_M = z_length / z_N;
-
-			// note that both arrays will have holes when objects are destroyed
-			// but for initial planning they should work
-			friends = GameObject.FindGameObjectsWithTag("Player");
-			enemies = GameObject.FindGameObjectsWithTag("Enemy");
-			EnemiesCounter = enemies.Length;
-			foreach (GameObject obj in enemies)
-			{
-				//Debug.DrawLine(transform.position, obj.transform.position, Color.black, 10f);
-			}
-
-			// Plan your path here
-			if (m_Car.transform.position.x == 407.8)
-			{
-				CarIndex = 0;
-			}
-			if (m_Car.transform.position.x == 414)
-			{
-				CarIndex = 1;
-			}
-			if (m_Car.transform.position.x == 419)
-			{
-				CarIndex = 2;
-			}
-			getTraversability();
-			DiscretizeMap();
-			ComputeDangerMap();
-			GetShootingPoints();
-			ComputePath();
-			GetCarID();
-			ComputeDangerMap();
-			GetShootingPoints2();
-		}
-
-		public void GetShootingPoints()
-		{
-			//Get points of the map that can see just an enemy-->SetPoints
-			//Get points of the map that cannot see any enemy-->SafePoints
-			ShootingPoints.Clear();
-			List<Vector3> Turrets = new List<Vector3>();
-			int r = 0;
-			bool hit;
-			enemies = GameObject.FindGameObjectsWithTag("Enemy");
-			foreach (GameObject obj in enemies)
-			{
-				//Debug.DrawLine(transform.position, obj.transform.position, Color.magenta, 100f);
-				if (obj.transform.position != null)
-				{
-					Turrets.Add(obj.transform.position);
-				}
-			}
-
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (FreePos[i, j].x != 0)
-					{
-						for (int t = 0; t < Turrets.Count; t++)
-						{
-							hit = Physics.Raycast(FreePos[i, j], Turrets[t] - FreePos[i, j], Vector3.Magnitude(Turrets[t] - FreePos[i, j]), 1 << 9);
-							if (!hit)
-							{
-								r++;
-							}
-						}
-						if (r == 1)
-						{
-							ShootingPoints.Add(FreePos[i, j]);
-						}
-						if (r == 0)
-						{
-							SafePoints.Add(FreePos[i, j]);
-						}
-						r = 0;
-					}
-				}
-			}
-		}
-		public void ComputePath()
-		{
-			Vector3 Start = Vector3.zero;
-			Path.Clear();
-			for (int i = 0; i < ShootingPoints.Count; i++)
-			{
-				//Debug.DrawRay(ShootingPoints[i], dir, Color.magenta, 10f);
-			}
-			if (Count == 0)
-			{
-				Start = m_Car.transform.position;
-
-				for (int i = 0; i < x_N; i++)
-				{
-					for (int j = 0; j < z_N; j++)
-					{
-						if (Vector3.Distance(Start, FreePos[i, j]) < 20)
-						{
-							Start = FreePos[i, j];
-							break;
-						}
-					}
-
-				}
-				//Debug.DrawRay(Start, dir, Color.yellow, 100f);
-			}
-			else
-			{
-				Start = NewStart;
-			}
-			Vector3 TargetTurr = enemies[0].transform.position;
-			Vector3 Target;
-			bool hit;
-			float Dist = Vector3.Distance(TargetTurr, Start);
-			for (int i = 0; i < enemies.Length; i++)
-			{
-				if (Vector3.Distance(Start, enemies[i].transform.position) < Dist)
-				{
-					TargetTurr = enemies[i].transform.position;
-					Dist = Vector3.Distance(TargetTurr, Start);
-				}
-			}
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (Vector3.Distance(TargetTurr, FreePos[i, j]) < 20)
-					{
-						TargetTurr = FreePos[i, j];
-						break;
-					}
-				}
-			}
-			//Debug.DrawRay(TargetTurr, dir, Color.yellow, 1000f);
-			Dist = Vector3.Distance(ShootingPoints[0], TargetTurr);
-			Target = ShootingPoints[0];
-			if (Count == 0)
-			{
-				for (int i = 0; i < ShootingPoints.Count; i++)
-				{
-					hit = Physics.Raycast(ShootingPoints[i], TargetTurr - ShootingPoints[i], Vector3.Magnitude(TargetTurr - ShootingPoints[i]), 1 << 9);
-					if (!hit && Vector3.Distance(Start, ShootingPoints[i]) < Dist)
-					{
-						Target = ShootingPoints[i];
-						Dist = Vector3.Distance(ShootingPoints[i], TargetTurr);
-					}
-				}
-				//Debug.DrawRay(Target, dir, Color.green, 1000f);
-			}
-			else
-			{
-				Dist = Vector3.Distance(ShootingPoints[0], m_Car.transform.position);
-				for (int i = 0; i < ShootingPoints.Count; i++)
-				{
-					hit = Physics.Raycast(ShootingPoints[i], TargetTurr - ShootingPoints[i], Vector3.Magnitude(TargetTurr - ShootingPoints[i]), 1 << 9);
-					if (!hit && Vector3.Distance(Start, ShootingPoints[i]) < Dist)
-					{
-						Target = ShootingPoints[i];
-						Dist = Vector3.Distance(ShootingPoints[i], m_Car.transform.position);
-					}
-				}
-				//Debug.DrawRay(Target, dir, Color.green, 1000f);
-			}
-			Node node = BFS(Target, Start);
-			while (node.parent != null)
-			{
-				Path.Add(node.pos);
-				node = node.parent;
-			}
-			Path.Add(Target);
-			Path.Add(Target);
-			for (int i = 0; i < Path.Count - 1; i++)
-			{
-				//Debug.DrawLine(Path[i], Path[i + 1], Color.black, 100f);
-			}
-		}
-		public void GetShootingPoints2()
-		{
-			GetShootingPoints();
-			ComputeDangerMap();
-			Vector3 Start = m_Car.transform.position;
-			float dist = Vector3.Distance(Start, ShootingPoints[0]);
-			Vector3 goal = Start;
-			for (int i = 0; i < ShootingPoints.Count; i++)
-			{
-				if (Vector3.Distance(Start, ShootingPoints[i]) < dist)
-				{
-					dist = Vector3.Distance(Start, ShootingPoints[i]);
-					goal = ShootingPoints[i];
-				}
-			}
-			Node node;
-			node = Astar(Start, goal);
-			while (node.parent != null)
-			{
-				Path.Add(node.pos);
-				//Debug.DrawLine(target.pos, target.parent.pos, Color.cyan, 1000f);
-				node = node.parent;
-			}
-			//Node target = new Node(null, 0, Start);
-			//int cost = 10000000;
-			//enemies = GameObject.FindGameObjectsWithTag("Enemy");
-			//for (int i = 0; i < enemies.Length; i++)
-			//{
-			//    node = Astar(Start, enemies[i].transform.position);
-			//    if (node.cost < cost)
-			//    {
-			//        cost = node.cost;
-			//        target = node;
-			//    }
-			//}
-			//while (target.parent != null)
-			//{
-			//    Path.Add(target.pos);
-			//    //Debug.DrawLine(target.pos, target.parent.pos, Color.cyan, 1000f);
-			//    target = target.parent;
-			//}
-			Path.Reverse();
-			Path.Add(goal);
-			for (int i = 0; i < Path.Count - 1; i++)
-			{
-				Debug.DrawLine(Path[i], Path[i + 1], Color.cyan, 1000f);
-			}
-		}
-		public class Node
-		{
-			public Node parent;
-			public int cost;
-			public Vector3 pos;
-			public Node(Node parent, int cost, Vector3 pos)
-			{
-				this.parent = parent;
-				this.cost = cost;
-				this.pos = pos;
-			}
-		}
-		public Node BFS(Vector3 start, Vector3 goal)
-		{
-			bool[,] Visited = new bool[x_N * x_M, z_N * z_M];
-			Queue<Node> queue = new Queue<Node>();
-			Node root = new Node(null, 0, start);
-			queue.Enqueue(root);
-			while (queue.Count != 0)
-			{
-				Node curNode = queue.Dequeue();
-				if (Vector3.Magnitude(curNode.pos - goal) < 10) { return curNode; }
-				Vector3 up = new Vector3(curNode.pos.x, 0, curNode.pos.z + z_M);
-				Vector3 down = new Vector3(curNode.pos.x, 0, curNode.pos.z - z_M);
-				Vector3 left = new Vector3(curNode.pos.x - x_M, 0, curNode.pos.z);
-				Vector3 right = new Vector3(curNode.pos.x + x_M, 0, curNode.pos.z);
-				if (traversability[(int)up.x - x_low, (int)up.z - z_low] == 0 && !Visited[(int)up.x - x_low, (int)up.z - z_low])
-				{
-					Node newNode = new Node(curNode, curNode.cost + 1, up);
-					queue.Enqueue(newNode);
-					Visited[(int)up.x - 50, (int)up.z - 50] = true;
-				}
-				if (traversability[(int)down.x - x_low, (int)down.z - z_low] == 0 && !Visited[(int)down.x - x_low, (int)down.z - z_low])
-				{
-					Node newNode = new Node(curNode, curNode.cost + 1, down);
-					queue.Enqueue(newNode);
-					Visited[(int)down.x - 50, (int)down.z - 50] = true;
-				}
-				if (traversability[(int)left.x - x_low, (int)left.z - z_low] == 0 && !Visited[(int)left.x - x_low, (int)left.z - z_low])
-				{
-					Node newNode = new Node(curNode, curNode.cost + 1, left);
-					queue.Enqueue(newNode);
-					Visited[(int)left.x - 50, (int)left.z - 50] = true;
-				}
-				if (traversability[(int)right.x - x_low, (int)right.z - z_low] == 0 && !Visited[(int)right.x - x_low, (int)right.z - z_low])
-				{
-					Node newNode = new Node(curNode, curNode.cost + 1, right);
-					queue.Enqueue(newNode);
-					Visited[(int)right.x - 50, (int)right.z - 50] = true;
-				}
-			}
-			return null;
-		}
-		public Node Astar(Vector3 start, Vector3 goal)
-		{
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (Vector3.Distance(start, FreePos[i, j]) < 20)
-					{
-						start = FreePos[i, j];
-						break;
-					}
-				}
-
-			}
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (Vector3.Distance(goal, FreePos[i, j]) < 20)
-					{
-						goal = FreePos[i, j];
-						break;
-					}
-				}
-
-			}
-			Node root = new Node(null, 0, start);
-			Node neig = root;
-			bool found;
-			List<Node> OpenSet = new List<Node>();
-			List<Vector3> Neig = new List<Vector3>();
-			int tentativeScore = 0;
-			int k = 0, p = 0;
-			OpenSet.Add(root);
-			Node current = root;
-			int[,] gScore;
-			//initialize gScore
-			gScore = new int[x_N, z_N];
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (FreePos[i, j] == start)
-					{
-						gScore[i, j] = 0;
-					}
-					else
-					{
-						gScore[i, j] = 100000;
-					}
-				}
-			}
+        // Variables for Terrain
+        public GameObject terrain_manager_game_object;
+        TerrainManager terrain_manager;
+        public Graph graph;
+        private CarConfigSpace ObstacleSpace;
 
 
-			while (OpenSet.Count > 0)
-			{
-				current = OpenSet[0];
-				//SetCurrent as the best in OpenSet (the one with lowest cost)
-				for (int i = 1; i < OpenSet.Count; i++)
-				{
-					if (OpenSet[i].cost < current.cost)
-					{
-						current = OpenSet[i];
-					}
-				}
-				if (current.pos == goal)
-				{
-					break;
-				}
-				OpenSet.Remove(current);
-				Neig = GetNeighbours(current.pos);
-				tentativeScore = 0;
-				for (int i = 0; i < Neig.Count; i++)
-				{
-					// get indexes of Neig[i]
-					k = 0;
-					p = 0;
-					for (int n = 0; n < x_N; n++)
-					{
-						for (int m = 0; m < z_N; m++)
-						{
-							if (FreePos[n, m] == Neig[i])
-							{
-								k = n;
-								p = m;
-								break;
-							}
-						}
-					}
-					//update tentativeScore
-					tentativeScore = current.cost + DangerMap[k, p];
-					//check if you can find a better solution
-					if (tentativeScore < gScore[k, p])
-					{
-						gScore[k, p] = tentativeScore;
-						neig = new Node(current, tentativeScore, Neig[i]);
-						found = false;
-						for (int w = 0; w < OpenSet.Count; w++)
-						{
-							if (OpenSet[w].pos == Neig[i])
-							{
-								found = true;
-							}
-						}
-						if (!found)
-						{
-							OpenSet.Add(neig);
-						}
-					}
-				}
-				Neig.Clear();
-			}
-			return current;
-		}
-		public List<Vector3> GetNeighbours(Vector3 point)
-		{
-			List<Vector3> Neighbours = new List<Vector3>();
-			int i = 0, j = 0;
-			for (int n = 0; n < x_N; n++)
-			{
-				for (int m = 0; m < z_N; m++)
-				{
-					if (FreePos[n, m] == point)
-					{
-						i = n;
-						j = m;
-					}
-				}
-			}
-			if (FreePos[i, j + 1] != Vector3.zero)
-			{
-				Neighbours.Add(FreePos[i, j + 1]);
-			}
-			if (FreePos[i + 1, j] != Vector3.zero)
-			{
-				Neighbours.Add(FreePos[i + 1, j]);
-			}
-			if (FreePos[i, j - 1] != Vector3.zero)
-			{
-				Neighbours.Add(FreePos[i, j - 1]);
-			}
-			if (FreePos[i - 1, j] != Vector3.zero)
-			{
-				Neighbours.Add(FreePos[i - 1, j]);
-			}
-			return Neighbours;
-		}
-		public void getTraversability()
-		{
-			float[,] trav = terrain_manager.myInfo.traversability;
-			traversability = new int[x_length, z_length];
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					for (int k = 0; k < x_M; k++)
-					{
-						for (int l = 0; l < z_M; l++)
-						{
-							traversability[i * x_N + k, j * z_N + l] = (int)trav[i, j];
-						}
-					}
-				}
-			}
-			int buffer = 3;
-			for (int i = 0; i < x_length; i++)
-			{
-				for (int j = 0; j < z_length; j++)
-				{
-					int posX = (int)(i / x_M);
-					int posZ = (int)(j / z_M);
-					if (trav[posX, posZ] == 1.0)
-					{
-						int bufferXPlus = buffer;
-						int bufferXMinus = -buffer;
-						int bufferZPlus = buffer;
-						int bufferZMinus = -buffer;
-						if (bufferXMinus + i < 0) { bufferXMinus = 0; }
-						if (bufferXPlus + i > x_length - 1) { bufferXPlus = 0; }
-						if (bufferZMinus + j < 0) { bufferZMinus = 0; }
-						if (bufferZPlus + j > z_length - 1) { bufferZPlus = 0; }
-						for (int k = bufferXMinus; k <= bufferXPlus; k++)
-						{
-							for (int l = bufferZMinus; l <= bufferZPlus; l++)
-							{
-								traversability[k + i, l + j] = 1;
-							}
-						}
-					}
-				}
-			}
-		}
-		public bool ObstacleFree(Vector3 nearest, Vector3 pos)
-		{
-			//UnityEngine.Debug.Log("From " + nearest + " To " + pos);
-			float xDist = pos[0] - nearest[0];
-			float zDist = pos[2] - nearest[2];
-			float xAng = xDist + 0;
-			float zAng = zDist + 0;
-			if (zDist != 0)
-			{
-				xAng = xDist / Mathf.Abs(zDist);
-			}
-			if (xDist != 0)
-			{
-				zAng = zDist / Mathf.Abs(xDist);
-			}
-			if (Mathf.Abs(zAng) < Mathf.Abs(xAng))
-			{
-				xAng = 1 * Mathf.Sign(xDist);
-			}
-			else
-			{
-				zAng = 1 * Mathf.Sign(zDist);
-			}
-			bool obstacleFree = true;
-			int length = (int)Mathf.Max(Mathf.Abs(zDist), Mathf.Abs(xDist));
-			for (int i = 0; i < length; i++)
-			{
-				int xCord = (int)(nearest[0] - x_low - 1 + xAng * i);
-				int zCord = (int)(nearest[2] - z_low - 1 + i * zAng);
-				//UnityEngine.Debug.Log("X " + xCord + " Z " + zCord);
-				if (traversability[xCord, zCord] == 1)
-				{
-					obstacleFree = false;
-					break;
-				}
-			}
-			return obstacleFree;
-		}
-		public void DiscretizeMap()
-		{
-			//Compute a matrix of Vector3 with the position of the discrete points of the map
-			//(x, y, z) = (0, 0, 0) if obstacle
-			float[,] trav = terrain_manager.myInfo.traversability;
-			FreePos = new Vector3[x_N, z_N];
+        // Variables for Players and Turrets
+        public GameObject[] friends, cars;
+        public GameObject[] enemies;
+        private List<Vector3> enemy_positions = new List<Vector3>();
+        private int enemy_count;
+        public Destructable Health;
+        public List<float> HealthVec = new List<float>();
+        public float TotalHealth;
 
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (trav[i, j] == 0)
-					{
-						Vector3 NewPos = new Vector3(x_low + (i * x_N) + x_N / 2, 0, z_low + (j * z_N) + z_N / 2);
-						FreePos[i, j] = NewPos;
-						//Debug.DrawRay(NewPos, dir, Color.black, 1000f);
-					}
-					else
-					{
-						Vector3 NewPos = new Vector3(0, 0, 0);
-						FreePos[i, j] = NewPos;
-					}
-				}
-			}
-		}
-		public void ComputeDangerMap()
-		{
-			List<Vector3> Turrets = new List<Vector3>();
-			int f = 0;
-			bool hit;
-			foreach (GameObject obj in enemies)
-			{
-				//Debug.DrawLine(transform.position, obj.transform.position, Color.magenta, 100f);
-				Turrets.Add(obj.transform.position);
-			}
-			DangerMap = new int[x_N, z_N];
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					if (FreePos[i, j].x != 0)
-					{
-						for (int k = 0; k < Turrets.Count; k++)
-						{
-							hit = Physics.Raycast(FreePos[i, j], Turrets[k] - FreePos[i, j], Vector3.Magnitude(Turrets[k] - FreePos[i, j]), 1 << 9);
-							if (!hit)
-							{
-								f++;
-							}
-						}
-						DangerMap[i, j] = f;
-						f = 0;
-					}
-					else
-					{
-						DangerMap[i, j] = 10000;
-					}
-				}
-			}
-			for (int i = 0; i < x_N; i++)
-			{
-				for (int j = 0; j < z_N; j++)
-				{
-					//               if (DangerMap[i, j] == 0)
-					//               {
-					//                   Debug.DrawRay(FreePos[i, j], dir, Color.green, 1000f);
-					//               }
-					//               if (DangerMap[i, j] == 1)
-					//               {
-					//                   Debug.DrawRay(FreePos[i, j], dir, Color.black, 1000f);
-					//               }
-					//if (DangerMap[i, j] == 2)
-					//{
-					//	Debug.DrawRay(FreePos[i, j], dir, Color.yellow, 1000f);
-					//}
-					//if (DangerMap[i, j] > 2)
-					//{
-					//	Debug.DrawRay(FreePos[i, j], dir, Color.red, 1000f);
-					//}
+        // Variables for path & driving
+        private float acceleration, max_speed;
+        private bool MazeComplete, PlayerCrashed;
+        private float mazeTimer, driveTimer, stuckTimer, recoveryTime;
+        private float recoverySteer;
+        private Vector3 previous_pos;
+        private int path_index;
+        private List<Vector3> my_path;
+        private Node peeking_node, firing_node;
+        enum car_state { drive, front_crash, back_crash };
+        private car_state car_status;
 
-					//if (DangerMap[i, j] == 3)
-					//{
-					//    Debug.DrawRay(FreePos[i, j], dir, Color.blue, 1000f);
-					//}
-					//if (DangerMap[i, j] == 4)
-					//{
-					//    Debug.DrawRay(FreePos[i, j], dir, Color.yellow, 1000f);
-					//}
-					//if (DangerMap[i, j] == 5)
-					//{
-					//    Debug.DrawRay(FreePos[i, j], dir, Color.red, 1000f);
-					//}
-					//if (DangerMap[i, j] == 6)
-					//{
-					//    Debug.DrawRay(FreePos[i, j], dir, Color.cyan, 1000f);
-					//}
-					//if (DangerMap[i, j] == 7)
-					//{
-					//    Debug.DrawRay(FreePos[i, j], dir, Color.white, 1000f);
-					//}
-					//if (DangerMap[i, j] == 8)
-					//{
-					//    Debug.DrawRay(FreePos[i, j], dir, Color.green, 1000f);
-					//}
-				}
-			}
-		}
-		public void GetCarID()
-		{
-			HealthVec.Clear();
-			float MaxHealt;
-			int MaxHealtIndex = 0;
-			cars = GameObject.FindGameObjectsWithTag("Player");
-			for (int i = 0; i < cars.Length; i++)
-			{
-				HealthVec.Add(cars[i].GetComponent<Destructable>().health);
-			}
-			MaxHealt = HealthVec[0];
-			for (int i = 1; i < HealthVec.Count; i++)
-			{
-				//Debug.Log("CarHealth: " + HealthVec[i]);
-				if (HealthVec[i] > MaxHealt)
-				{
-					MaxHealt = HealthVec[i];
-					MaxHealtIndex = i;
-				}
-			}
-			leader = MaxHealtIndex;
-			Debug.Log("leader: " + leader);
-		}
+        enum car_detection_state { no_detection, frontal_detection, frontal_crash }
+        private car_detection_state car_status_gian = car_detection_state.no_detection;
 
-		public Vector3 AdaptPath(Vector3 SetPoint)
-		{
-			Vector3 distance;
-			Vector3 DesiredPos = Vector3.zero;
-			cars = GameObject.FindGameObjectsWithTag("Player");
-			if (cars.Length == 3)
-			{
-				if (leader == 0)
-				{
-					if (CarIndex == 1)
-					{
-						DesiredPos.x = -5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-					if (CarIndex == 2)
-					{
-						DesiredPos.x = +0f;
-						DesiredPos.z = -4f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-				}
-				if (leader == 1)
-				{
-					if (CarIndex == 0)
-					{
-						DesiredPos.x = -5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-					if (CarIndex == 2)
-					{
-						DesiredPos.x = +0f;
-						DesiredPos.z = -4f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-				}
-				if (leader == 2)
-				{
-					if (CarIndex == 0)
-					{
-						DesiredPos.x = +5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-					if (CarIndex == 1)
-					{
-						DesiredPos.x = -0f;
-						DesiredPos.z = -4f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-				}
-			}
-			if (cars.Length == 2)
-			{
-				if (leader == 0)
-				{
-					if (CarIndex == 1)
-					{
-						DesiredPos.x = +5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-					if (CarIndex == 2)
-					{
-						DesiredPos.x = -5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-				}
-				if (leader == 1)
-				{
-					if (CarIndex == 0)
-					{
-						DesiredPos.x = +5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-					if (CarIndex == 2)
-					{
-						DesiredPos.x = -5f;
-						DesiredPos.z = -0f;
-						distance = cars[leader].transform.rotation * DesiredPos;
-						SetPoint = cars[leader].transform.position + distance;
-						Debug.DrawLine(cars[leader].transform.position, SetPoint);
-					}
-				}
-			}
-			return SetPoint;
-		}
-		private void FixedUpdate()
-		{
-			//Count = 0;
+        private bool backward_crash = false;
+        private bool frontal_crash = false;
 
-			bool YouLeader = false;
-			bool waiting = false;
-			OffPath = Path;
-			cars = GameObject.FindGameObjectsWithTag("Player");
+        private float accelerationAmount = 0;
+        private float footbrake = 0;
+        private float steeringAmount = 0;
+        private float handbrake = 0;
+        private Vector3 targetPosition;
 
-			//stuck recovery
-			if (Stuck)
-			{
-				m_Car.Move(0f, 1f, -1f, 0f);
-				reverseCount++;
-				if (reverseCount > 100) //80
-				{
-					Stuck = false;
-					reverseCount = 0;
-				}
-				return;
-			}
-			else if (LastPos.x.ToString("0.00") == m_Car.transform.position.x.ToString("0.00") && LastPos.z.ToString("0.00") == m_Car.transform.position.z.ToString("0.00"))
-			{
-				StuckCount++;
-			}
-			else
-			{
-				StuckCount = 0;
-			}
-			if (StuckCount > 5)
-			{
-				Stuck = true;
-			}
-			LastPos = m_Car.transform.position;
-			Debug.Log("Count" + Count);
-			if (Count > 0)
-			{
-				GetCarID();
-
-				if (Health.health == cars[leader].GetComponent<Destructable>().health)
-				{
-					YouLeader = true;
-				}
-
-			}
-			else
-			{
-				if (CarIndex == 0)
-				{
-					leader = 0;
-					YouLeader = true;
-				}
-				else
-				{
-					YouLeader = false;
-				}
-			}
-
-			Debug.Log("YouLeader" + YouLeader);
+        private void Start()
+        {
+            // Initialize Variables
+            Time.timeScale = 1;
+            driveTimer = 0f;
+            max_speed = 10;
+            acceleration = 1f;
+            MazeComplete = false;
+            mazeTimer = 0f;
+            car_status = car_state.drive;
+            stuckTimer = 0f;
+            PlayerCrashed = false;
+            recoveryTime = 0.7f;
+            recoverySteer = 0.45f;//45 degrees gives best result
 
 
-			Debug.Log("NewPath" + NewPath);
-			Debug.Log("kPath" + kPath);
-			if (NewPath)
-			{
-				//NewStart = Path[kPath - 1];
-				Path.Clear();
-				kPath = 0;
-				Count++;
-				//ShootingPoints.Clear();
-				GetShootingPoints2();
-				//ComputePath();
-				OffPath = Path;
-				NewPath = false;
-			}
-			else
-			{
-				enemies = GameObject.FindGameObjectsWithTag("Enemy");
-				if (kPath >= OffPath.Count - 1 || enemies.Length < EnemiesCounter)
-				{
-					m_Car.Move(0f, 0f, 0f, 0f);
-					EnemiesCounter = enemies.Length;
-					NewPath = true;
-					Count++;
-					return;
-				}
-				if (YouLeader)
-				{
-					//followPath:
-					//when close enough to Path[k] pass to next point in path
-					if (Vector3.Magnitude(Path[kPath] - m_Car.transform.position) < 10)
-					{
-						kPath++;
-					}
-					//waiting function may be needed
-					for (int i = 0; i < cars.Length; i++)
-					{
-						if (Vector3.Magnitude(m_Car.transform.position - cars[i].transform.position) > 20 && f > 30)
-						{
-							waiting = true;
-						}
-					}
-					if (waiting)
-					{
-						//Vector3 AvPos = Vector3.zero;
-						//for (int i = 0; i < cars.Length; i++)
-						//{
-						//	if (i != leader)
-						//	{
-						//		AvPos += cars[i].transform.position;
-						//	}
-						//}
-						//AvPos /= (cars.Length - 1);
-						//Single ControlV = 0.01f * Vector3.Magnitude(m_Car.transform.position - AvPos) + +0.5f * (m_Car.MaxSpeed / 20 - m_Car.CurrentSpeed);
-						//Single steeringAngleErr = -Vector3.SignedAngle(AvPos - transform.position, transform.forward, transform.up);
-						//Single control = 0.5f * steeringAngleErr;
-						m_Car.Move(0f, 0f, -0.01f, 0f); // 0.01
-														//Debug.DrawLine(m_Car.transform.position, AvPos, Color.magenta);
-														//Debug.Log("WAITING");
-					}
-					else
-					{
-						//controller
-						Single steeringAngleErr = -Vector3.SignedAngle(OffPath[kPath] - transform.position, transform.forward, transform.up);
-						Single control = 0.5f * steeringAngleErr;
-						Single controlV = 0.3f * Vector3.Magnitude(m_Car.transform.position - OffPath[kPath]) + 0.8f * (m_Car.MaxSpeed / 20 - m_Car.CurrentSpeed);
+            // Initialize Car and Terrain
+            m_Car = GetComponent<CarController>();
+            terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
+            rigidbody = GetComponent<Rigidbody>();
+            Health = GetComponent<Destructable>();
 
-						if (Vector3.Magnitude(m_Car.transform.position - OffPath[kPath]) < 5)
-						{
-							if (m_Car.transform.position.x == OffPath[kPath].x && OffPath[kPath].x == OffPath[kPath + 1].x)
-							{
-								controlV = 1;
-							}
-							else if (m_Car.transform.position.z == OffPath[kPath].z && OffPath[kPath].z == OffPath[kPath + 1].z)
-							{
-								controlV = 1;
-							}
-							else
-							{
-								controlV = 0;
-							}
-						}
-						if (m_Car.CurrentSpeed < 10)
-						{
-							controlV = 1;
-						}
-						Debug.DrawLine(m_Car.transform.position, OffPath[kPath]);
-						Debug.Log("leaderrrrr");
-						m_Car.Move(control, controlV, 0f, 0f);
-					}
-				}
-				else
-				{
-					//followLeader
-					f++; //to make the starting better
-					if (Vector3.Magnitude(Path[kPath] - cars[leader].transform.position) < 10 && kPath < Path.Count - 1)
-					{
-						kPath++;
-					}
-					if (f > 40)
-					{
-						Vector3 Set;
-						Set = AdaptPath(cars[leader].transform.position);
-						Single steeringAngleErr = -Vector3.SignedAngle(Set - transform.position, transform.forward, transform.up);
-						Single control = 0.5f * steeringAngleErr;
-						Single controlV = 1f * Vector3.Magnitude(transform.position - Set) + 0.8f * (m_Car.MaxSpeed / 15 - m_Car.CurrentSpeed);
-						Debug.DrawLine(transform.position, Set);
-						m_Car.Move(control, controlV, 0f, 0f);
-					}
-					else
-					{
-						m_Car.Move(0f, 0f, 0f, 0f);
-					}
-				}
-			}
-			Debug.Log("CarIndex: " + CarIndex + " Leader: " + YouLeader + " Health: " + Health.health + " LeaderIndex: " + leader + " Count: " + Count);
-		}
+            // Initialize ConfigSpace
+            CreateObstacleSpace();
 
-	}
+            // Construct Terrain Graph
+            int x_scale = terrain_manager.myInfo.x_N*4;
+            int z_scale = terrain_manager.myInfo.z_N*4;
+            
+            //i want x_unit and z_unit to be √2r, where r is the range of the gun.
+            //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
+            graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
+
+
+            // Get Array of Friends and Eniemies
+            friends = GameObject.FindGameObjectsWithTag("Player");
+            Vector3[] initial_positions = new Vector3[friends.Length];
+            int i = 0;
+            foreach (GameObject friend in friends)
+            {
+                if (friend.name == this.name)
+                {
+                    CarNumber = i + 1;
+                }
+                //if (CarNumber == 1) Debug.Log(friend + " position: " + friend.gameObject.transform.position);
+                initial_positions[i] = friend.gameObject.transform.position;
+                i++;
+
+            }
+            enemies = GameObject.FindGameObjectsWithTag("Enemy");
+            enemy_count = enemies.Length;
+            foreach (GameObject obj in enemies)
+            {
+                Debug.DrawLine(transform.position, obj.transform.position, Color.black, 10f);
+                enemy_positions.Add(obj.gameObject.transform.position);
+
+            }
+            DangerMap();
+            peeking_node = peekNode();
+            Debug.Log("Car " + CarNumber + " PeekingNode " + peeking_node + " " + peeking_node.worldPosition);
+            firing_node = fireNode();
+            my_path = ComputePath();
+            path_index = 0;
+
+        }
+
+
+
+        private void FixedUpdate()
+        {
+            
+            mazeTimer += Time.deltaTime;
+            enemies = GameObject.FindGameObjectsWithTag("Enemy");
+            cars = GameObject.FindGameObjectsWithTag("Player");
+            // Health info
+            HealthVec.Clear();
+            TotalHealth = 0;
+            for (int i = 0; i < cars.Length; i++)
+            {
+                HealthVec.Add(cars[i].GetComponent<Destructable>().health);
+                TotalHealth = TotalHealth + cars[i].GetComponent<Destructable>().health;
+            }
+            
+            // Exit Game logic
+            if (enemies.Length <= 0)
+            {
+                if (CarNumber == 1) Debug.Log("All enemies killed in " + mazeTimer + " Remaining Health"+ TotalHealth +" Exiting Game...");
+                UnityEditor.EditorApplication.isPlaying = false;
+            }
+
+            // Re-evaulate DangerLevel if enemy killed
+            if (enemies.Length != enemy_count && enemies.Length > 0)
+            {
+                Debug.Log("Enemy killed ");
+                DangerMap();
+                peeking_node = peekNode();
+                firing_node = fireNode();
+                my_path = ComputePath();
+                path_index = 0;
+                enemy_count = enemies.Length;
+
+            }
+            
+            if (CarNumber == 1) Debug.Log("Remaining Health" + TotalHealth + " Enemies remaining: " + enemies.Length + " Time Elapsed: " + mazeTimer);
+
+            // Drive Car
+            if (!MazeComplete)
+            {
+                path_index = DriveCar(my_path, m_Car, path_index);
+
+                //path_index = gianDriveCar(my_path, m_Car, path_index);
+                //Check if all enemies killed for maze completion
+                if (enemies.Length <= 0)
+                {
+                    MazeComplete = true;
+                    if (CarNumber == 1) Debug.Log("Car " + CarNumber + "Path Completed in " + mazeTimer);
+                }
+            }
+            else
+            {
+                // Do nothing for now - wait for others to finish
+                // How to utilise this extra time???
+
+            }
+
+            
+
+
+        }
+
+        // MAIN FUNC: Assign dangerlevel to each node
+        private void DangerMap()
+        {
+            // Find enemy positions
+            enemy_positions = new List<Vector3>();
+            foreach (GameObject obj in enemies)
+            {
+                if (obj.gameObject.transform.position != null)
+                {
+                    enemy_positions.Add(obj.gameObject.transform.position);
+                }
+            }
+
+            bool obstacle = false;
+            foreach (Node node in graph.nodes)
+            {
+                if (node.walkable)
+                {
+                    node.dangerLevel = 0;
+                    int i = 0;
+                    foreach (Vector3 enemy in enemy_positions)
+                    {
+                        obstacle = Physics.Raycast(enemy, node.worldPosition - enemy, Vector3.Magnitude(enemy - node.worldPosition), 1 << 9);
+                        if (!obstacle)
+                        {
+                            node.dangerLevel++;
+                            if (node.dangerLevel == 1)
+                            {
+                                node.assigned_enemy = i;
+                            }
+                            i++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // MAIN FUNC: Find closest shooting node
+        private Node peekNode()
+        {
+            List<Node> peekNodes = new List<Node>();
+            Node bestNode = graph.nodes[0, 0];
+            foreach (Node node in graph.nodes)
+            {
+                if(node.dangerLevel==0)
+                {
+                    foreach(Node neighbour in node.neighbours)
+                    {
+                        if(neighbour.dangerLevel == 1)
+                        {
+                            peekNodes.Add(node);
+                            if (Vector3.Distance(friends[0].transform.position, node.worldPosition) < Vector3.Distance(friends[0].transform.position, bestNode.worldPosition))
+                            {
+                                bestNode = node;
+                                break;
+                            }
+
+                        }
+                    }
+                }
+            }
+            //Debug.Log("Car " + CarNumber + " bestNode " + bestNode);
+
+            List<Node> bestNodes = new List<Node>();
+            bestNodes.Add(bestNode);
+            int c = 1;
+            while (bestNodes.Count < friends.Length)
+            {
+                foreach (Node node in peekNodes)
+                {
+                    if (node.assigned_enemy == bestNode.assigned_enemy 
+                        && Vector3.Distance(bestNode.worldPosition, node.worldPosition) <= (c * 2 * graph.x_unit)
+                        && !bestNodes.Contains(node))
+                    {
+                        //Debug.Log("c: " +c+ " NEW bestNode found " + node + " bestNodes " + bestNodes.Count);
+                        bestNodes.Add(node);
+
+                    }
+                    if (bestNodes.Count >= friends.Length)
+                    {
+                        break;
+                    }
+                }
+                c++;
+            }
+            return bestNodes[CarNumber-1];
+        }
+
+        // MAIN FUNC: Find firing node bases on closet shooting node
+        private Node fireNode()
+        {
+            List<Node> peekNodes = new List<Node>();
+            Node bestNode = graph.nodes[0, 0];
+            foreach (Node node in graph.nodes)
+            {
+                if (node.dangerLevel == 1)
+                {
+                    foreach (Node neighbour in node.neighbours)
+                    {
+                        if (neighbour.dangerLevel == 0)
+                        {
+                            peekNodes.Add(node);
+                            if (Vector3.Distance(friends[0].transform.position, node.worldPosition) < Vector3.Distance(friends[0].transform.position, bestNode.worldPosition))
+                            {
+                                bestNode = node;
+                                break;
+                            }
+
+                        }
+                    }
+                }
+            }
+            //Debug.Log("Car " + CarNumber + " bestNode " + bestNode);
+
+            List<Node> bestNodes = new List<Node>();
+            bestNodes.Add(bestNode);
+            int c = 1;
+            while (bestNodes.Count < friends.Length)
+            {
+                foreach (Node node in peekNodes)
+                {
+                    if (node.assigned_enemy == bestNode.assigned_enemy
+                        && Vector3.Distance(bestNode.worldPosition, node.worldPosition) <= (c * 2 * graph.x_unit)
+                        && !bestNodes.Contains(node))
+                    {
+                        //Debug.Log("c: " +c+ " NEW bestNode found " + node + " bestNodes " + bestNodes.Count);
+                        bestNodes.Add(node);
+
+                    }
+                    if (bestNodes.Count >= friends.Length)
+                    {
+                        break;
+                    }
+                }
+                c++;
+            }
+            return bestNodes[CarNumber - 1];
+        }
+
+        // MAIN FUNC: Find path
+        private List<Vector3> ComputePath()
+        {
+            List<Vector3> path = new List<Vector3>();
+            List<Node> path_to_starting_node = PathFinder.findSafePath(graph, m_Car.transform.position, peeking_node.worldPosition, (360 - transform.eulerAngles.y + 90) % 360);
+            Debug.Log("Car " + CarNumber + " Start: " + m_Car.transform.position + " peek: " + peeking_node.worldPosition + " path " + path_to_starting_node.Count);
+            foreach (Node node in path_to_starting_node)
+            {
+                path.Add(node.worldPosition);
+            }
+            path.Add(firing_node.worldPosition);
+            return path;
+        }
+
+       
+        // MAIN FUNC: To create obstacle space
+        private void CreateObstacleSpace()
+        {
+            //Obstacle Sapce
+            Quaternion carRotation = m_Car.transform.rotation;
+            m_Car.transform.rotation = Quaternion.identity;
+            ObstacleSpace = new CarConfigSpace();
+            BoxCollider carCollider = GameObject.Find("ColliderBottom").GetComponent<BoxCollider>();
+            ObstacleSpace.BoxSize = carCollider.transform.TransformVector(carCollider.size);
+            m_Car.transform.rotation = carRotation;
+        }
+
+        // MAIN FUNC: Car Drive
+        public int DriveCar(List<Vector3> player_path, CarController player_Car, int player_pathIndex)
+        {
+            Vector3 player_waypoint = player_path[player_pathIndex];
+            float steeringAmount, accelerationAmount, car_steer_next;
+
+            //find steering needed to get to next point
+            steeringAmount = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
+            accelerationAmount = Accelerate(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_waypoint);
+            car_steer_next = Steer(player_Car.transform.position, player_Car.transform.eulerAngles.y, player_path[(player_pathIndex + 1) % player_path.Count]);
+            // Do opposite turn if next next steer is in opposte
+            if (Math.Abs(car_steer_next) > 0.3f && Math.Abs(steeringAmount) < 0.3f)
+            {
+                steeringAmount = -car_steer_next;
+            }
+
+            // DRIVE BLOCK
+            if (!PlayerCrashed)
+            {
+                driveTimer += Time.deltaTime;
+
+                //Check if car stuck and not at starting pointing
+                if (driveTimer >= stuckTimer && path_index > 10)
+                {
+                    driveTimer = 0;
+                    //if (CarNumber == 1) Debug.Log("Crash pos: " + Vector3.Distance(previous_pos, player_Car.transform.position));
+                    //check: car not moved very much from previous position
+                    if (Vector3.Distance(previous_pos, player_Car.transform.position) < 0.05f)
+                    {
+                        PlayerCrashed = true;
+                        // check if obstacle in front of car
+                        if (player_Car.CurrentSpeed < 0.5f && Physics.BoxCast(player_Car.transform.position,
+                            new Vector3(ObstacleSpace.BoxSize.x / 2, ObstacleSpace.BoxSize.y / 2, 0.5f),
+                            player_Car.transform.forward,
+                            Quaternion.LookRotation(player_Car.transform.forward),
+                            ObstacleSpace.BoxSize.z / 1.7f))
+                        {
+                            car_status = car_state.front_crash;
+                        }
+                        else if (player_Car.CurrentSpeed < 0.5f)
+                        {
+                            car_status = car_state.back_crash;
+                        }
+                        /*
+                        else if(Physics.BoxCast(player_Car.transform.position,
+                            new Vector3(ObstacleSpace.BoxSize.x / 2, ObstacleSpace.BoxSize.y / 2, 0.5f),
+                            Quaternion.AngleAxis(0, Vector3.down) * player_Car.transform.forward,
+                            Quaternion.LookRotation(Quaternion.AngleAxis(0, Vector3.down) * player_Car.transform.forward),
+                            ObstacleSpace.BoxSize.z / 1.7f))
+                        {
+                            car_status = car_state.back_crash;
+                        }
+                        else
+                        {
+                            PlayerCrashed = false;
+                            car_status = car_state.drive;
+                        }*/
+                    }
+                    else
+                    {
+                        // update previous car position
+                        previous_pos = player_Car.transform.position;
+                    }
+                }
+                float old_steering = steeringAmount;
+                avoid_obstacles();
+                if (old_steering != steeringAmount)
+                {
+                    if (CarNumber == 1) Debug.Log("Crashed, old steering: " + old_steering + " new steering: " + steeringAmount);
+                }
+                // if current speed is max, then don't accelerate
+                if (player_Car.CurrentSpeed >= max_speed)
+                {
+                    accelerationAmount = 0;
+                }
+                // if acceleration is reverse, apply backwards turns
+                if (accelerationAmount < 0)
+                {
+                    player_Car.Move(-steeringAmount, footbrake, accelerationAmount * acceleration, 0);
+                }
+                else
+                {
+                    player_Car.Move(steeringAmount, accelerationAmount * acceleration, 0, 0);
+                }
+
+            }
+            // CRASH RECOVERY BLOCK
+            else
+            {
+                stuckTimer += Time.deltaTime;
+
+                // immediately drive away from crash position
+                if (stuckTimer <= recoveryTime && Math.Abs(steeringAmount) > recoverySteer)
+                {
+                    //reverse car if crashed in front
+                    if (car_status == car_state.front_crash)
+                    {
+                        //if (CarNumber == 1) Debug.Log("Front Crash recovery logic " + "Steer: " + car_steer + "Time: " + stuckTimer);
+                        player_Car.Move(-steeringAmount, 0, -1, 0);
+                        // switch up crash direction if recovery delayed
+                        if (stuckTimer > recoveryTime / 2 && PlayerCrashed)
+                        {
+                            car_status = car_state.back_crash;
+                            //if (CarNumber == 1) Debug.Log("Back Crash recovery logic " + "Steer: " + car_steer + "Time: " + stuckTimer);
+                            player_Car.Move(steeringAmount, 1, 0, 0);
+                        }
+                    }
+                    //drive forward if crashed while reverse drive
+                    else
+                    {
+                        //if (CarNumber == 1) Debug.Log("Back Crash recovery logic " + "Steer: " + car_steer + "Time: " + stuckTimer);
+                        player_Car.Move(steeringAmount, 1, 0, 0);
+                    }
+                }
+                else
+                {
+                    // reset to drive mode from recovery
+                    stuckTimer = 0;
+                    car_status = car_state.drive;
+                    PlayerCrashed = false;
+                }
+            }
+
+            //update to new path index
+            if (Vector3.Distance(player_Car.transform.position, player_waypoint) <= 5f)
+            {
+                player_pathIndex = Mathf.Min(player_pathIndex + 1, player_path.Count - 1);
+            }
+
+            return player_pathIndex;
+        }
+
+        // Sub-Func: To find steering angle for car
+        private float Steer(Vector3 position, float theta, Vector3 target)
+        {
+            Vector3 direction = Quaternion.Euler(0, theta, 0) * Vector3.forward;
+            Vector3 directionToTarget = target - position;
+            float angle = Vector3.Angle(direction, directionToTarget) * Mathf.Sign(-direction.x * directionToTarget.z + direction.z * directionToTarget.x);
+            return Mathf.Clamp(angle, -m_Car.m_MaximumSteerAngle, m_Car.m_MaximumSteerAngle) / m_Car.m_MaximumSteerAngle;
+        }
+
+        // Sub-Func: To find accleration for car
+        private float Accelerate(Vector3 position, float theta, Vector3 target)
+        {
+            Vector3 direction = Quaternion.Euler(0, theta, 0) * Vector3.forward;
+            Vector3 directionToTarget = target - position;
+            return Mathf.Clamp(direction.x * directionToTarget.x + direction.z * directionToTarget.z, -1, 1);
+        }
+
+        // Sub-Func: To avoid obstacles
+        private void avoid_obstacles(bool curve_approaching = false, float range = 5f)
+        {
+            RaycastHit hit;
+            Vector3 maxRange = new Vector3(range, 0, range / 1.5f);
+            bool had_hit = false;
+            bool had_hit_frontally = false;
+
+            if (CarNumber == 1)
+            {
+                Debug.Log("Backward crash: " + backward_crash);
+
+                Debug.Log("Frontal  crash: " + frontal_crash);
+            }
+            if (frontal_crash && Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange.z) && hit.collider.gameObject.name == "Cube")
+            {
+                this.accelerationAmount = 0;
+                this.footbrake = -1;
+                this.steeringAmount *= -1;
+
+                return;
+            }
+            else frontal_crash = false; //stays in the frontal crash state driving backward until there is no obstacle in front of the car
+
+            if (backward_crash && m_Car.CurrentSpeed < 5f)
+            {
+                this.accelerationAmount = 1;
+                this.footbrake = 0;
+                return;
+            }
+            else backward_crash = false;
+
+            if (m_Car.CurrentSpeed < 5f)
+            {
+                this.accelerationAmount += 0.5f;
+            }
+
+            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange.z) && hit.collider.gameObject.name == "Cube")
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+                this.accelerationAmount *= 0.5f;
+                this.footbrake = this.footbrake < 0.2f ? 0.5f : this.footbrake * 2;
+                if (CarNumber == 1) Debug.Log("Frontal collision, distance: " + hit.distance);
+                had_hit = true;
+                had_hit_frontally = true;
+
+                if (hit.distance < 5 && m_Car.CurrentSpeed < 1) //recovery from frontal hit
+                {
+                    frontal_crash = true;
+                    if (CarNumber == 1) Debug.Log("Collision STOP");
+                    this.accelerationAmount = 0;
+                    this.footbrake = -1;
+                    this.steeringAmount *= -1;
+                    this.handbrake = 0;
+                }
+            }
+
+            /*if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.back), out hit, maxRange.z))
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+                this.accelerationAmount = 1;
+                this.footbrake = 0;
+                if (CarNumber == 1) Debug.Log("Back collision");
+                had_hit = true;
+            }*/
+
+            if (Physics.Raycast(transform.position + transform.right, transform.TransformDirection(Vector3.right), out hit, maxRange.x) && hit.collider.gameObject.name == "Cube")
+            //Physics.Raycast(transform.position + transform.right, transform.TransformDirection(Vector3.up + Vector3.right), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.y * maxRange.y)))
+            {
+
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+                this.accelerationAmount *= 0.7f;
+                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
+                this.steeringAmount += -0.5f;
+                if (CarNumber == 2)
+                    if (CarNumber == 1) Debug.Log("Right collision");
+                had_hit = true;
+
+
+            }
+
+            if (Physics.Raycast(transform.position + transform.right + transform.up, transform.TransformDirection(new Vector3(1, 0, 1)), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.z * maxRange.z) / 3f) && hit.collider.gameObject.name == "Cube")
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(new Vector3(1, 0, 1)) * hit.distance;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.red);
+                this.accelerationAmount *= 0.7f;
+                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
+                this.steeringAmount += -0.5f;
+                if (CarNumber == 2)
+                    if (CarNumber == 1) Debug.Log("Right-up collision " + hit.collider.gameObject.name);
+                had_hit = true;
+                had_hit_frontally = true;
+
+
+
+            }
+
+            if (Physics.Raycast(transform.position + transform.right + transform.up, transform.TransformDirection(new Vector3(-1, 0, 1)), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.z * maxRange.z) / 3f) && hit.collider.gameObject.name == "Cube")
+            {
+
+
+                Vector3 closestObstacleInFront = transform.TransformDirection(new Vector3(-1, 0, 1)) * hit.distance;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.red);
+                this.accelerationAmount *= 0.7f;
+                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
+                this.steeringAmount += 0.5f;
+                if (CarNumber == 2)
+                    if (CarNumber == 1) Debug.Log("left-up collision " + hit.collider.gameObject.name);
+                had_hit = true;
+                had_hit_frontally = true;
+
+
+
+            }
+
+            if (Physics.Raycast(transform.position + transform.right, transform.TransformDirection(Vector3.left), out hit, maxRange.x) && hit.collider.gameObject.name == "Cube")
+            //Physics.Raycast(transform.position + transform.right, transform.TransformDirection((Vector3.up + Vector3.left).normalized), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.y* maxRange.y)))
+            {
+                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
+                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+                this.accelerationAmount *= 0.7f;
+                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
+                this.steeringAmount += 0.5f;
+                if (CarNumber == 2)
+                    if (CarNumber == 1) Debug.Log("Left collision");
+
+                had_hit = true;
+            }
+
+            if (!had_hit && !curve_approaching)
+            {
+                this.accelerationAmount *= 1.25f;
+                if (CarNumber == 2)
+                    if (CarNumber == 1) Debug.Log("Not hit speed");
+            }
+
+            if (!had_hit && m_Car.CurrentSpeed < 1f)
+            {
+                if (CarNumber == 1) Debug.Log("Had hit backward");
+                backward_crash = true;
+                this.accelerationAmount = 1;
+                this.footbrake = 0;
+                this.handbrake = 0;
+                this.steeringAmount *= 1;
+            }
+
+            if (had_hit && m_Car.CurrentSpeed < 1f)
+            {
+                frontal_crash = true;
+                this.accelerationAmount = 0;
+                this.footbrake = -1;
+                this.handbrake = 0;
+                this.steeringAmount *= -1;
+
+            }
+
+
+        }
+
+        //MAIN FUNC: Visualise
+        void OnDrawGizmos() // draws grid on map and shows car
+        {
+                       
+            if (graph != null)
+            {
+                // Show Danger Levels on terrain 
+                Color[] colors = { new Color(0f, 1f, 0f, 0.2f), new Color(1f, 0.9f, 0.016f, 0.2f), new Color(1f, 0.5f, 0f, 0.2f), new Color(1f, 0.25f, 0f, 0.2f), new Color(1f, 0f, 0f, 0.2f) };
+                foreach (Node n in graph.nodes) // graph.path 
+                {
+                    if (n != null && n.walkable)
+                    { 
+                        Gizmos.color = colors[n.dangerLevel];
+                        //if (graph.path != null && graph.path.Contains(n))
+                           // Gizmos.color = Color.white;
+
+                        if(n == peeking_node)
+                        {
+                            Gizmos.color = new Color(0f, 0f, 0.9f, 1f);
+                        }
+                        if(n == firing_node)
+                        {
+                            Gizmos.color = Color.red;
+                        }
+                        float scale_factor = n.is_supernode ? 1.8f : 0.9f;
+                        Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
+
+                    }
+
+                }
+
+                // Show each car in different color
+                Color[] car_colors = { Color.grey, new Color(0.933f, 0.509f, 0.933f, 1f), new Color(0.541f, 0.168f, 0.886f, 1f), Color.magenta };
+                Gizmos.color = car_colors[CarNumber];
+                //Gizmos.DrawSphere(m_Car.transform.position, graph.x_unit);
+
+                //Show the path to the goal
+                if (my_path != null)
+                {
+                    for (int i = path_index; i < my_path.Count - 1; ++i)
+                    {
+                        Gizmos.color = car_colors[CarNumber];
+                        Gizmos.DrawLine(my_path[i], my_path[i + 1]);
+                    }
+                }
+            }
+
+            
+
+
+
+
+
+        }
+    }
 }
