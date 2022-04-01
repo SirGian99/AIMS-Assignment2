@@ -127,7 +127,7 @@ namespace UnityStandardAssets.Vehicles.Car
             // DARP Algorithm
             // Get subgraph:
             initial_positions[0] = new Vector3(0, 0, 0);
-            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100, -30);
+            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos);
             graph = subgraph;

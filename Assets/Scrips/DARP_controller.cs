@@ -152,19 +152,27 @@ public class DARP_controller
                 Node current = graph.nodes[i, j];
                 if (current.walkable)
                 {
-                    Vector3 direction = (current.worldPosition - graph.centre).normalized;
-                    if (direction.y != 0)
-                        direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
+                    if (input_angle != -999)
+                    {
+                        Vector3 direction = (current.worldPosition - graph.centre).normalized;
+                        if (direction.y != 0)
+                            direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
 
-                    float angle = get_angle(direction.x, direction.z) + (input_angle * Mathf.PI / 180f);
-                    // cap within 0-180
-                    while (angle < 0)
-                        angle = 2 * Mathf.PI + angle;
-                    while (angle > 2 * Mathf.PI)
-                        angle = angle - 2 * Mathf.PI;
+                        float angle = get_angle(direction.x, direction.z) + (input_angle * Mathf.PI / 180f);
+                        // cap within 0-180
+                        while (angle < 0)
+                            angle = 2 * Mathf.PI + angle;
+                        while (angle > 2 * Mathf.PI)
+                            angle = angle - 2 * Mathf.PI;
 
-                    //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
-                    assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
+                        //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
+                        assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
+                    }
+                    else
+                    {
+                        assignment_matrix[i, j] = 1;
+                        current.assigned_veichle = 1;
+                    }
                 }
 
             }
