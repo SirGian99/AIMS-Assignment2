@@ -27,7 +27,8 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        naive_assignment(12, initial_positions[0]);
+        //naive_assignment(12, initial_positions[0]);
+        greedy_assignment();
         smooth_areas();
 
     }
@@ -167,6 +168,89 @@ public class DARP_controller
                     assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
                 }
 
+            }
+        }
+    }
+
+    public void greedy_assignment()
+    {
+        List<Node> start_nodes = new List<Node>();
+        int n = 0, top_shift = 0, bottom_shift=0, WalkableNodes = graph.walkable_nodes;
+        while (n < n_agents)
+        {
+            int i, j;
+            if (n == 0 && n_agents % 2 != 0)
+            {
+                i = graph.i_size / 2;
+                j = graph.j_size / 2; // midpoint
+                Debug.Log("0N " + n + " : " + i + " " + j);
+            }
+            else if(n%2==0)
+            {
+                i = graph.i_size - top_shift - 1;
+                j = graph.j_size/2; // top
+                Debug.Log("tN " + n + " : " + i + " " + j);
+                top_shift++;
+            }
+            else
+            {
+                i = bottom_shift;
+                j = graph.j_size / 2; // bottom
+                Debug.Log("bN " + n + " : " + i + " " + j);
+                bottom_shift++;
+            }
+            Node current = graph.nodes[i, j];
+            if (current.walkable)
+            {
+                start_nodes.Add(current);
+                assignment_matrix[i, j] = n + 1;
+                n++;
+                WalkableNodes--;
+            }
+        }
+        /*
+        while (WalkableNodes != 0)
+        {
+            foreach (Node node in graph.nodes)
+            {
+                for (int m = n_agents-1; m >=0; m--)
+                {
+                    if (node.walkable && assignment_matrix[node.i, node.j] == m + 1)
+                    {
+                        foreach (Node neighbour in node.neighbours)
+                        {
+                            if (node.walkable && neighbour.walkable
+                            && assignment_matrix[node.i, node.j] == m + 1
+                            && assignment_matrix[neighbour.i, neighbour.j] == 0)
+                            {
+                                assignment_matrix[neighbour.i, neighbour.j] = m + 1;
+                                WalkableNodes--;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        */
+        while (WalkableNodes != 0)
+        {
+            foreach (Node node in graph.nodes)
+            {
+                foreach (Node neighbour in node.neighbours)
+                {
+                    for (int m = n_agents - 1; m >= 0; m--)
+                    {
+                        if (node.walkable && neighbour.walkable
+                            && assignment_matrix[node.i, node.j] == m + 1
+                            && assignment_matrix[neighbour.i, neighbour.j] == 0)
+                        {
+                            assignment_matrix[neighbour.i, neighbour.j] = m + 1;
+                            WalkableNodes--;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
