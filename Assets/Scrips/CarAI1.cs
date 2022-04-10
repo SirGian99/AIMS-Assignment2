@@ -126,7 +126,8 @@ namespace UnityStandardAssets.Vehicles.Car
 
             // DARP Algorithm
             // Get subgraph:
-            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
+            initial_positions[0] = new Vector3(0, 0, 0);
+            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100, naive:false);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos);
             graph = subgraph;
@@ -351,7 +352,7 @@ namespace UnityStandardAssets.Vehicles.Car
                                 }
                                 break;
                             default:
-                                throw new Exception("GOT DIRECTION ERROR");
+                                throw new Exception("GOT DIRECTION ERROR FROM NODE " + current_node + "to node" + next_node + "for car " + CarNumber );
                         }
                         //arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
                     }
@@ -441,6 +442,21 @@ namespace UnityStandardAssets.Vehicles.Car
                         switch (direction)
                         {
                             case Direction.F:
+                                switch(arriving_orientation)
+                                {
+                                    case Orientation.UU:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
+                                        break;
+                                    case Orientation.DD:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
+                                        break;
+                                    case Orientation.R:
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
+                                        break;
+                                    case Orientation.L:
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
+                                        break;
+                                }
                                 path.Add(next_node.worldPosition);
                                 break;
                             case Direction.TL:
@@ -485,6 +501,7 @@ namespace UnityStandardAssets.Vehicles.Car
                     break;
 
                 arriving_orientation = PathFinder.getOrientation(current_node, next_node);
+                next_node.visited = true;
                 current_node = next_node;
 
 

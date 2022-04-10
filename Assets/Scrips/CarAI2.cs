@@ -99,7 +99,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //but i also want the new scales them to be a multiple of the original x_scale and z_scale            
             graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
             original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale, z_scale);
-            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100);
+            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100, 75);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             darp.update_assigned_nodes(original_graph);
             starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, subgraph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
@@ -162,7 +162,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //MergedNode current = merged_nodes_final[curr_i, curr_j];
 
             MergedNode next;
-            int safe_exit = 40;
+            int safe_exit = 1000;
             while (current!=null && safe_exit>0)
             {
                 safe_exit--;
