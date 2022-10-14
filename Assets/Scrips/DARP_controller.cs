@@ -14,7 +14,7 @@ public class DARP_controller
     public float fair_share;
 
 
-    public DARP_controller(int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance)
+    public DARP_controller(int n_agents, Vector3[] initial_positions, Graph graph, float update_rate, float update_tolerance, float angle = 12, bool naive = true)
     {
         this.n_agents = n_agents;
         this.initial_positions = initial_positions;
@@ -27,7 +27,10 @@ public class DARP_controller
         //create_evaluation(initial_positions);
         //update_assignment();
         //update_evaluation(update_rate, update_tolerance);
-        naive_assignment(12, initial_positions[0]);
+        if(naive)
+            naive_assignment(angle, initial_positions[0]);
+        else 
+            greedy_assignment();
         smooth_areas();
 
     }
@@ -152,21 +155,112 @@ public class DARP_controller
                 Node current = graph.nodes[i, j];
                 if (current.walkable)
                 {
-                    Vector3 direction = (current.worldPosition - graph.centre).normalized;
-                    if (direction.y != 0)
-                        direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
+                    if (input_angle != -999)
+                    {
+                        Vector3 direction = (current.worldPosition - graph.centre).normalized;
+                        if (direction.y != 0)
+                            direction = (new Vector3(current.worldPosition.x - initial_position.Value.x, 0, current.worldPosition.z - initial_position.Value.z)).normalized;
 
-                    float angle = get_angle(direction.x, direction.z) + (input_angle * Mathf.PI / 180f);
-                    // cap within 0-180
-                    while (angle < 0)
-                        angle = 2 * Mathf.PI + angle;
-                    while (angle > 2 * Mathf.PI)
-                        angle = angle - 2 * Mathf.PI;
+                        float angle = get_angle(direction.x, direction.z) + (input_angle * Mathf.PI / 180f);
+                        // cap within 0-180
+                        while (angle < 0)
+                            angle = 2 * Mathf.PI + angle;
+                        while (angle > 2 * Mathf.PI)
+                            angle = angle - 2 * Mathf.PI;
 
-                    //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
-                    assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
+                        //Debug.Log("Node: [" + i + "," + j + "] direction: " + direction + " angle: " + (angle * 180 / Mathf.PI) + "assigned to " + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI)));
+                        assignment_matrix[i, j] = 1 + (int)Mathf.Floor(angle * n_agents / (2 * Mathf.PI));
+                    }
+                    else
+                    {
+                        assignment_matrix[i, j] = 1;
+                        current.assigned_veichle = 1;
+                    }
                 }
 
+            }
+        }
+    }
+
+    public void greedy_assignment()
+    {
+        List<Node> start_nodes = new List<Node>();
+        int n = 0, top_shift = 0, bottom_shift=0, WalkableNodes = graph.walkable_nodes;
+        while (n < n_agents)
+        {
+            int i, j;
+            if (n == 0 && n_agents % 2 != 0)
+            {
+                i = graph.i_size / 2;
+                j = graph.j_size / 2; // midpoint
+                Debug.Log("0N " + n + " : " + i + " " + j);
+            }
+            else if(n%2==0)
+            {
+                i = graph.i_size - top_shift - 1;
+                j = graph.j_size/2; // top
+                Debug.Log("tN " + n + " : " + i + " " + j);
+                top_shift++;
+            }
+            else
+            {
+                i = bottom_shift;
+                j = graph.j_size / 2; // bottom
+                Debug.Log("bN " + n + " : " + i + " " + j);
+                bottom_shift++;
+            }
+            Node current = graph.nodes[i, j];
+            if (current.walkable)
+            {
+                start_nodes.Add(current);
+                assignment_matrix[i, j] = n + 1;
+                n++;
+                WalkableNodes--;
+            }
+        }
+        /*
+        while (WalkableNodes != 0)
+        {
+            foreach (Node node in graph.nodes)
+            {
+                for (int m = n_agents-1; m >=0; m--)
+                {
+                    if (node.walkable && assignment_matrix[node.i, node.j] == m + 1)
+                    {
+                        foreach (Node neighbour in node.neighbours)
+                        {
+                            if (node.walkable && neighbour.walkable
+                            && assignment_matrix[node.i, node.j] == m + 1
+                            && assignment_matrix[neighbour.i, neighbour.j] == 0)
+                            {
+                                assignment_matrix[neighbour.i, neighbour.j] = m + 1;
+                                WalkableNodes--;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        */
+        while (WalkableNodes != 0)
+        {
+            foreach (Node node in graph.nodes)
+            {
+                foreach (Node neighbour in node.neighbours)
+                {
+                    for (int m = n_agents - 1; m >= 0; m--)
+                    {
+                        if (node.walkable && neighbour.walkable
+                            && assignment_matrix[node.i, node.j] == m + 1
+                            && assignment_matrix[neighbour.i, neighbour.j] == 0)
+                        {
+                            assignment_matrix[neighbour.i, neighbour.j] = m + 1;
+                            WalkableNodes--;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }

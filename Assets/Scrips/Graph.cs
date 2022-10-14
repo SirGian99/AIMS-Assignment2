@@ -284,11 +284,10 @@ public class Graph{
     }
 
 
+    
 
 
-
-
-    public static Graph CreateSubGraph(Graph old_graph, int car_index, TerrainInfo terrainInfo, int x_N, int z_N)
+    public static Graph CreateSubGraph(Graph old_graph, int car_index, TerrainInfo terrainInfo, int x_N, int z_N, bool merge = true)
     {
         if (terrainInfo == null)
         {
@@ -319,75 +318,77 @@ public class Graph{
 
             }
         }
-        bool has_merged = false;
-        for(int i = 0; i<graph.nodes.GetLength(0)-1; i++)
+        if (merge)
         {
-            //has_merged = false;
-
-            for (int j = 0; j < graph.nodes.GetLength(1)-1; j++)
+            bool has_merged = false;
+            for (int i = 0; i < graph.nodes.GetLength(0) - 1; i++)
             {
                 //has_merged = false;
-                Node node = graph.nodes[i, j];
-                if (node != null && !node.is_supernode && node.walkable)
+
+                for (int j = 0; j < graph.nodes.GetLength(1) - 1; j++)
                 {
-                    if(graph.nodes[i + 1, j]!=null && graph.nodes[i, j + 1] != null && graph.nodes[i + 1, j + 1] != null &&
-                        graph.nodes[i+1, j].walkable && graph.nodes[i, j+1].walkable && graph.nodes[i + 1, j+1].walkable &&
-                        !(graph.nodes[i + 1, j].is_supernode || graph.nodes[i, j + 1].is_supernode || graph.nodes[i + 1, j + 1].is_supernode))
+                    //has_merged = false;
+                    Node node = graph.nodes[i, j];
+                    if (node != null && !node.is_supernode && node.walkable)
                     {
-                        //MERGING NODES
-                        node.is_supernode = true;
-                        node.worldPosition = new Vector3(node.worldPosition.x + graph.x_unit / 2, 0, node.worldPosition.z + graph.z_unit / 2);
-                        node.x_pos = node.worldPosition.x;
-                        node.z_pos = node.worldPosition.z;
-                        node.merged_nodes = new List<Node>();
-                        node.merged_nodes.Add(node);
-                        node.merged_nodes.Add(old_graph.nodes[i + 1, j]);
-                        node.merged_nodes.Add(old_graph.nodes[i, j + 1]);
-                        node.merged_nodes.Add(old_graph.nodes[i + 1, j + 1]);
-
-                        foreach(Node merged in node.merged_nodes)
+                        if (graph.nodes[i + 1, j] != null && graph.nodes[i, j + 1] != null && graph.nodes[i + 1, j + 1] != null &&
+                            graph.nodes[i + 1, j].walkable && graph.nodes[i, j + 1].walkable && graph.nodes[i + 1, j + 1].walkable &&
+                            !(graph.nodes[i + 1, j].is_supernode || graph.nodes[i, j + 1].is_supernode || graph.nodes[i + 1, j + 1].is_supernode))
                         {
-                            merged.has_been_merged = true;
-                            merged.merged_supernode = node;
+                            //MERGING NODES
+                            node.is_supernode = true;
+                            node.worldPosition = new Vector3(node.worldPosition.x + graph.x_unit / 2, 0, node.worldPosition.z + graph.z_unit / 2);
+                            node.x_pos = node.worldPosition.x;
+                            node.z_pos = node.worldPosition.z;
+                            node.merged_nodes = new List<Node>();
+                            node.merged_nodes.Add(node);
+                            node.merged_nodes.Add(old_graph.nodes[i + 1, j]);
+                            node.merged_nodes.Add(old_graph.nodes[i, j + 1]);
+                            node.merged_nodes.Add(old_graph.nodes[i + 1, j + 1]);
+
+                            foreach (Node merged in node.merged_nodes)
+                            {
+                                merged.has_been_merged = true;
+                                merged.merged_supernode = node;
+                            }
+
+                            graph.nodes[i + 1, j] = node;
+                            graph.nodes[i, j + 1] = node;
+                            graph.nodes[i + 1, j + 1] = node;
+                            graph.merged_graph[i + 1, j] = node;
+                            graph.merged_graph[i, j + 1] = node;
+                            graph.merged_graph[i + 1, j + 1] = node;
+                            graph.merged_graph[i, j] = node;
+                            old_graph.nodes[i + 1, j] = node;
+                            old_graph.nodes[i, j + 1] = node;
+                            old_graph.nodes[i + 1, j + 1] = node;
+                            node.neighbours = null;
+                            //has_merged = true;
+
+
+
+                            /*
+                            graph.nodes[i + 1, j].is_supernode = true;
+                            graph.nodes[i, j + 1].is_supernode = true;
+                            graph.nodes[i + 1, j + 1].is_supernode = true;
+                            graph.nodes[i + 1, j].worldPosition = node.worldPosition;
+                            graph.nodes[i, j + 1].worldPosition = node.worldPosition;
+                            graph.nodes[i + 1, j + 1].worldPosition = node.worldPosition;
+                            */
+
                         }
+                        node.neighbours = null; //ADDED TODO REMOVE
 
-                        graph.nodes[i + 1, j] = node;
-                        graph.nodes[i, j + 1] = node;
-                        graph.nodes[i + 1, j + 1] = node;
-                        graph.merged_graph[i + 1, j] = node;
-                        graph.merged_graph[i, j + 1] = node;
-                        graph.merged_graph[i + 1, j + 1] = node;
-                        graph.merged_graph[i, j] = node;
-                        old_graph.nodes[i + 1, j] = node;
-                        old_graph.nodes[i, j + 1] = node;
-                        old_graph.nodes[i + 1, j + 1] = node;
-                        node.neighbours = null;
-                        //has_merged = true;
-                        
-
-
-                        /*
-                        graph.nodes[i + 1, j].is_supernode = true;
-                        graph.nodes[i, j + 1].is_supernode = true;
-                        graph.nodes[i + 1, j + 1].is_supernode = true;
-                        graph.nodes[i + 1, j].worldPosition = node.worldPosition;
-                        graph.nodes[i, j + 1].worldPosition = node.worldPosition;
-                        graph.nodes[i + 1, j + 1].worldPosition = node.worldPosition;
-                        */
 
                     }
-                    node.neighbours = null; //ADDED TODO REMOVE
 
-
+                    if (has_merged)
+                        j++;
                 }
-
                 if (has_merged)
-                    j++;
+                    i++;
             }
-            if (has_merged)
-                i++;
         }
-
         foreach (Node node in graph.nodes)
         {
             if (node != null)

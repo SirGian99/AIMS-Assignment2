@@ -1,4 +1,4 @@
-﻿using System.Collections;
+﻿/*using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
@@ -48,17 +48,9 @@ namespace UnityStandardAssets.Vehicles.Car
         private car_state car_status;
         private List<Vector3> enemy_positions = new List<Vector3>();
 
-        private List<Node> final_node_path = new List<Node>();
-
-
-        private bool backward_crash = false;
-        private bool frontal_crash = false;
-
-        private float accelerationAmount = 0;
-        private float footbrake = 0;
-        private float steeringAmount = 0;
-        private float handbrake = 0;
-        private Vector3 targetPosition;
+        //Path matrix from one target to the other. The starting position is the last one.
+        List<Node>[,] paths;
+        int[,] costs;
 
 
         private void Start()
@@ -113,10 +105,6 @@ namespace UnityStandardAssets.Vehicles.Car
                 if (friend.name == this.name)
                 {
                     CarNumber = i + 1;
-                    if (CarNumber == 1)
-                        CarNumber = 3;
-                    else if (CarNumber == 3)
-                        CarNumber = 1;
                 }
                 //Debug.Log(friend + " position: " + friend.gameObject.transform.position);
                 initial_positions[i] = friend.gameObject.transform.position;
@@ -137,70 +125,73 @@ namespace UnityStandardAssets.Vehicles.Car
             map = new GraphSTC(subgraph, start_pos, enemy_positions);
             graph = subgraph;
             darp.update_assigned_nodes(original_graph);
-            
 
-            for (int e = 0; e<enemy_positions.Count; e++)
+            List<Node> myEnemies = new List<Node>();
+
+            foreach(Vector3 enemy in enemy_positions)
             {
-
-                if (original_graph.getNodeFromPoint(enemy_positions[e]).assigned_veichle != CarNumber) {
-                    enemy_positions.Remove(enemy_positions[e]);
-                    e--;
+                Node enemy_node = graph.getNodeFromPoint(enemy);
+                if (enemy_node != null && enemy_node.assigned_veichle == CarNumber)
+                {
+                    enemy_node.worldPosition = enemy;
+                    myEnemies.Add(enemy_node);
                 }
             }
-
+            int n_enemies = myEnemies.Count;
+            paths = new List<Node>[n_enemies + 1, n_enemies + 1];
+            costs = new int[n_enemies + 1, n_enemies + 1];
             starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
-            original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale * 2, z_scale * 2);
+            myEnemies.Add(starting_node);
+            for(int e = 0; e<n_enemies; e++)
+            {
+                for (int k = e+1; k<n_enemies+1; k++)
+                {
+                    PathFinder.findPath(graph, myEnemies[e].worldPosition, myEnemies[k].worldPosition, get_angle(myEnemies[e].worldPosition, myEnemies[k].worldPosition));
+                    paths[e, k] = graph.path;
+                    paths[k, e] = new List<Node>(graph.path);
+                    paths[k, e].Reverse();
+                    costs[e, k] = paths[e, k].Count;
+                    costs[k, e] = paths[k, e].Count;
+                }
+            }
+            //getting the starting enemy to reach
+            //fai prim e trova lo shortest path
+            int closest = n_enemies;
+            for(int e = 0; e < n_enemies; e++)
+            {
+                if (costs[n_enemies, e] != 0 && costs[n_enemies, e] < costs[n_enemies, closest])
+                    closest = e;
+            }
+            // Get min tree:
+            min_tree = Prim_STC(map, starting_node);
+            min_tree = PruneTree(min_tree, enemy_positions);
 
-            
+            // Get path from min_tree:
+            int upsampling_factor = 4;
+            my_path = new List<Vector3>();
+            my_path = ComputePath(map, min_tree, transform.position, starting_node, get_initial_orientation(transform.position, starting_node.worldPosition));
+
+            //findPath(original_graph, start_position, current.worldPosition, heading);
+            my_path = PathFinder.pathUpsampling(my_path, upsampling_factor);
+            my_path = PathFinder.pathSmoothing(my_path, 0.6f, 0.2f, 1E-09f);
+
+            // Get path to starting node
+            if (path_to_starting_node.Count > 0)
+            {
+                path_to_starting_node = PathFinder.pathUpsampling(path_to_starting_node, upsampling_factor);
+                path_to_starting_node = PathFinder.pathSmoothing(path_to_starting_node, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
+            }
+
+            // Combine both paths
             foreach (Node n in path_to_starting_node)
             {
                 final_path.Add(n.worldPosition);
-                final_node_path.Add(n);
             }
+            final_path.AddRange(my_path);
 
+            // TODO : ADD CURVES to PATH
 
-            Vector3 current_position = starting_node.worldPosition;
-            float heading = (360 - transform.eulerAngles.y + 90) % 360;
-            //compute closest turret
-            int safe_exit = 10;
-            while (enemy_positions.Count > 0)
-            {
-                Vector3 closest_point = new Vector3(0, 0, 0);
-                int min_distance = int.MaxValue;
-                int turret_index=0;
-                List<Node> path_to_closest = new List<Node>();
-                for (int e = 0; e<enemy_positions.Count; e++)
-                {
-                    Vector3 turret = enemy_positions[e];
-                    List<Node> path_to_current = PathFinder.findAstarPath(original_graph, current_position, turret, heading);
-                    if (path_to_current.Count < min_distance)
-                    {
-                        min_distance = path_to_current.Count;
-                        path_to_closest = path_to_current;
-                        turret_index = e;
-                        closest_point = turret;
-                    }
-                }
-                if(CarNumber==2)Debug.Log("Iteration " + (10 - safe_exit) + "closest enemy: " + closest_point);
-                current_position = closest_point;
-                heading = path_to_closest[path_to_closest.Count - 1].heading;
-                final_node_path.AddRange(path_to_closest);
-                enemy_positions.RemoveAt(turret_index);
-                safe_exit--;
-            }
-
-            int upsampling_factor = 4;
-            if (final_node_path.Count > 0)
-            {
-                final_node_path = PathFinder.pathUpsampling(final_node_path, upsampling_factor);
-                final_node_path = PathFinder.pathSmoothing(final_node_path, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
-            }
-
-            my_path = new List<Vector3>();
-            foreach(Node n in final_node_path)
-            {
-                my_path.Add(n.worldPosition);
-            }
+            my_path = final_path;
 
         }
 
@@ -214,9 +205,7 @@ namespace UnityStandardAssets.Vehicles.Car
             // Drive Car
             if (!MazeComplete)
             {
-                path_index = gianDriveCar(my_path, m_Car, path_index);
-
-                //path_index = DriveCar(my_path, m_Car, path_index);
+                path_index = DriveCar(my_path, m_Car, path_index);
 
                 //Check if all enemies killed for maze completion
                 if (enemies.Length <= 0 || path_index >= my_path.Count)
@@ -240,237 +229,6 @@ namespace UnityStandardAssets.Vehicles.Car
             }
         }
 
-        public int gianDriveCar(List<Vector3> player_path, CarController player_Car, int player_pathIndex)
-        {
-
-
-            handbrake = 0;
-            Vector3 player_waypoint = player_path[player_pathIndex];
-
-            float current_angle = (360 - transform.eulerAngles.y + 90) % 360;
-            //if (CarNumber == 1) Debug.Log("Current angle: " + current_angle);
-
-            float targetDistanceMargin = (float)Math.Sqrt(graph.x_unit * graph.x_unit * +graph.z_unit * graph.z_unit) / 2;
-            Vector3 nextPosition = new Vector3(player_waypoint.x, transform.position.y, player_waypoint.z);
-            targetDistanceMargin = Vector3.Distance(nextPosition, player_pathIndex == 0 ? transform.position : new Vector3(player_path[player_pathIndex - 1].x, transform.position.y, player_path[player_pathIndex - 1].z)) / 2;
-            targetDistanceMargin = graph.x_unit / 2.5f;
-            //if (CarNumber == 1) { Debug.Log("Next position is " + nextPosition + "Path index: " + player_pathIndex + " Path count: " + player_path.Count);}
-            targetPosition = nextPosition;
-            //float distanceToTarget = Vector3.Distance(transform.position, targetPosition);
-
-            if (player_pathIndex != player_path.Count)
-            {
-                //get_closest_node(transform.position, final_path, nodeNumber) <= nodeNumber + 1 && distanceToTarget > targetDistanceMargin && !in_the_same_cell(transform.position, targetPosition, graph) && stop == 50)
-
-                SetAccelerationSteering(heading_steps: 0);
-                avoid_obstacles(range: graph.x_unit / 3);
-                if (CarNumber == 1)
-                {
-                    Debug.Log("Acceleration is set to " + accelerationAmount);
-                    Debug.Log("Steering is set to " + steeringAmount);
-                    Debug.Log("Footbrake is set to:" + footbrake);
-                    Debug.Log("Speed:" + m_Car.CurrentSpeed);
-                }
-
-                m_Car.Move(steeringAmount, accelerationAmount, footbrake, handbrake);
-
-            }
-            if (Vector3.Distance(player_Car.transform.position, targetPosition) <= targetDistanceMargin)
-            {
-                player_pathIndex = Mathf.Min(player_pathIndex + 1, player_path.Count - 1);
-            }
-
-            return player_pathIndex;
-        }
-
-        public void SetAccelerationSteering(float current_heading = 0, float lookahead_heading = 0, int heading_steps = 0)
-        {
-            float max_speed = 500;
-            Vector3 directionToMove = (this.targetPosition - transform.position).normalized;
-            float dot = Vector3.Dot(transform.forward, directionToMove);
-            float steeringAngle = Vector3.SignedAngle(transform.forward, directionToMove, Vector3.up);
-            this.steeringAmount = steeringAngle / m_Car.m_MaximumSteerAngle;
-            float safe_steering = Math.Abs(this.steeringAmount) > 0.5 ? 0.7f : 1;
-
-            max_speed *= (float)Math.Exp(-heading_steps / 2);
-
-
-            if (dot >= 0)
-            {
-
-                this.accelerationAmount = (max_speed - m_Car.CurrentSpeed) / max_speed * safe_steering;
-                this.footbrake = 0;
-                if (m_Car.CurrentSpeed >= max_speed)
-                    this.footbrake = (m_Car.CurrentSpeed - max_speed) / 10;
-            }
-            else
-            {
-                this.accelerationAmount = 0f;
-                this.footbrake = -1f;
-            }
-
-        }
-
-        private void avoid_obstacles(bool curve_approaching = false, float range = 5f)
-        {
-            RaycastHit hit;
-            Vector3 maxRange = new Vector3(range, 0, range / 1.5f);
-            bool had_hit = false;
-            bool had_hit_frontally = false;
-
-            if (CarNumber == 1)
-            {
-                Debug.Log("Backward crash: " + backward_crash);
-
-                Debug.Log("Frontal  crash: " + frontal_crash);
-            }
-            if (frontal_crash && Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange.z) && hit.collider.gameObject.name == "Cube")
-            {
-                this.accelerationAmount = 0;
-                this.footbrake = -1;
-                this.steeringAmount *= -1;
-
-                return;
-            }
-            else frontal_crash = false; //stays in the frontal crash state driving backward until there is no obstacle in front of the car
-
-            if (backward_crash && m_Car.CurrentSpeed < 5f)
-            {
-                this.accelerationAmount = 1;
-                this.footbrake = 0;
-                return;
-            }
-            else backward_crash = false;
-
-            if (m_Car.CurrentSpeed < 5f)
-            {
-                this.accelerationAmount += 0.5f;
-            }
-
-            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange.z) && hit.collider.gameObject.name == "Cube")
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                this.accelerationAmount *= 0.5f;
-                this.footbrake = this.footbrake < 0.2f ? 0.5f : this.footbrake * 2;
-                if (CarNumber == 1) Debug.Log("Frontal collision, distance: " + hit.distance);
-                had_hit = true;
-                had_hit_frontally = true;
-
-                if (hit.distance < 5 && m_Car.CurrentSpeed < 1) //recovery from frontal hit
-                {
-                    frontal_crash = true;
-                    if (CarNumber == 1) Debug.Log("Collision STOP");
-                    this.accelerationAmount = 0;
-                    this.footbrake = -1;
-                    this.steeringAmount *= -1;
-                    this.handbrake = 0;
-                }
-            }
-
-            /*if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.back), out hit, maxRange.z))
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                this.accelerationAmount = 1;
-                this.footbrake = 0;
-                if (CarNumber == 1) Debug.Log("Back collision");
-                had_hit = true;
-            }*/
-
-            if (Physics.Raycast(transform.position + transform.right, transform.TransformDirection(Vector3.right), out hit, maxRange.x) && hit.collider.gameObject.name == "Cube")
-            //Physics.Raycast(transform.position + transform.right, transform.TransformDirection(Vector3.up + Vector3.right), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.y * maxRange.y)))
-            {
-
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                this.accelerationAmount *= 0.7f;
-                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
-                this.steeringAmount += -0.5f;
-                if (CarNumber == 2)
-                    if (CarNumber == 1) Debug.Log("Right collision");
-                had_hit = true;
-
-
-            }
-
-            if (Physics.Raycast(transform.position + transform.right + transform.up, transform.TransformDirection(new Vector3(1, 0, 1)), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.z * maxRange.z) / 3f) && hit.collider.gameObject.name == "Cube")
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(new Vector3(1, 0, 1)) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.red);
-                this.accelerationAmount *= 0.7f;
-                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
-                this.steeringAmount += -0.5f;
-                if (CarNumber == 2)
-                    if (CarNumber == 1) Debug.Log("Right-up collision " + hit.collider.gameObject.name);
-                had_hit = true;
-                had_hit_frontally = true;
-
-
-
-            }
-
-            if (Physics.Raycast(transform.position + transform.right + transform.up, transform.TransformDirection(new Vector3(-1, 0, 1)), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.z * maxRange.z) / 3f) && hit.collider.gameObject.name == "Cube")
-            {
-
-
-                Vector3 closestObstacleInFront = transform.TransformDirection(new Vector3(-1, 0, 1)) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.red);
-                this.accelerationAmount *= 0.7f;
-                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
-                this.steeringAmount += 0.5f;
-                if (CarNumber == 2)
-                    if (CarNumber == 1) Debug.Log("left-up collision " + hit.collider.gameObject.name);
-                had_hit = true;
-                had_hit_frontally = true;
-
-
-
-            }
-
-            if (Physics.Raycast(transform.position + transform.right, transform.TransformDirection(Vector3.left), out hit, maxRange.x) && hit.collider.gameObject.name == "Cube")
-            //Physics.Raycast(transform.position + transform.right, transform.TransformDirection((Vector3.up + Vector3.left).normalized), out hit, Mathf.Sqrt(maxRange.x * maxRange.x + maxRange.y* maxRange.y)))
-            {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                this.accelerationAmount *= 0.7f;
-                this.footbrake = this.footbrake < 0.1f ? 0.3f : this.footbrake * 1.5f;
-                this.steeringAmount += 0.5f;
-                if (CarNumber == 2)
-                    if (CarNumber == 1) Debug.Log("Left collision");
-
-                had_hit = true;
-            }
-
-            if (!had_hit && !curve_approaching)
-            {
-                this.accelerationAmount *= 1.25f;
-                if (CarNumber == 2)
-                    if (CarNumber == 1) Debug.Log("Not hit speed");
-            }
-
-            if (!had_hit && m_Car.CurrentSpeed < 1f)
-            {
-                if (CarNumber == 1) Debug.Log("Had hit backward");
-                backward_crash = true;
-                this.accelerationAmount = 1;
-                this.footbrake = 0;
-                this.handbrake = 0;
-                this.steeringAmount *= 1;
-            }
-
-            if (had_hit && m_Car.CurrentSpeed < 1f)
-            {
-                frontal_crash = true;
-                this.accelerationAmount = 0;
-                this.footbrake = -1;
-                this.handbrake = 0;
-                this.steeringAmount *= -1;
-
-            }
-
-        }
-
 
         // MAIN FUNC: Compute path 
         private List<Vector3> ComputePath(GraphSTC graphSTC, Edge[] EdgeArray, Vector3 starting_position, Node starting_node, Orientation initial_orientation = Orientation.UU)
@@ -478,14 +236,61 @@ namespace UnityStandardAssets.Vehicles.Car
             List<Vector3> path = new List<Vector3>();
             Node current_node = starting_node;
             Orientation arriving_orientation = initial_orientation;
+            
 
+            /*
+             * Old code to compute the starting node, should not be needed anymore
+             * 
+            if (graphSTC.starting_node != null && false)
+            {
+                current_node = graphSTC.starting_node;
+            }
+            else
+            {
+
+                int i = terrain_manager.myInfo.get_i_index(starting_position.x);
+                int j = terrain_manager.myInfo.get_j_index(starting_position.z);
+
+                current_node = graph.nodes[i, j];
+                if(current_node == null)
+                {
+                    bool found = false;
+                    for(int ii = -1; ii<2 && !found; ii++)
+                    {
+                        for(int jj = -1; jj<2 && !found; jj++)
+                        {
+                            Node n = graph.nodes[i + ii, j + jj];
+                            if(n!= null && n.is_supernode)
+                            {
+                                foreach(Node merged in n.merged_nodes)
+                                {
+                                    if (merged.i == i && merged.j == j)
+                                    {
+                                        current_node = n;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                //current_node = graphSTC.get_closest_node(starting_position);
+               
+            }
+
+            */
+
+/* ////TODO REMOVE FOR COMMENT
+ * 
             if (!current_node.is_supernode)
             {
                 path.Add(current_node.worldPosition);
             }
             else
             {
-                path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
+                path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
             }
             Node next_node;// = PathFinder.get_next_node(initial_orientation, current_node);
 
@@ -498,24 +303,24 @@ namespace UnityStandardAssets.Vehicles.Car
                     switch (arriving_orientation)
                     {
                         case Orientation.UU:
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos + graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 1.7f, 0, current_node.z_pos + graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
                             break;
                         case Orientation.DD:
-                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos + graph.z_unit / 1.7f));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
                             break;
                         case Orientation.R:
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos + graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 1.7f, 0, current_node.z_pos + graph.z_unit / 1.7f));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
                             break;
                         case Orientation.L:
-                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 1.7f, 0, current_node.z_pos + graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
-                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 1.7f, 0, current_node.z_pos - graph.z_unit / 1.7f));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos + graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos - graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
+                            path.Add(new Vector3(current_node.x_pos + graph.x_unit / 2, 0, current_node.z_pos - graph.z_unit / 2));
                             break;
                     }
 
@@ -534,20 +339,20 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos + (graph.z_unit / 1.7f)));
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + (graph.z_unit / 2)));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos + (graph.z_unit / 2f)));
-                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 1.7f), 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + (graph.z_unit / 2f)));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -555,24 +360,24 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 1.7f), 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 1.7f), 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 1.7f), 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 1.7f), 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(next_node.x_pos - (graph.x_unit / 2f), 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -580,16 +385,16 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2f, 0, next_node.z_pos - graph.z_unit / 2f));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2f, 0, next_node.z_pos + graph.z_unit / 2f));
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2f, 0, next_node.z_pos + graph.z_unit / 2f));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 1.7f), 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + (graph.x_unit / 2f), 0, next_node.z_pos - graph.z_unit / 2f));
                                         break;
                                 }
                                 break;
@@ -607,16 +412,16 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -624,16 +429,16 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));//seems wrong at a first glance but i'm tired and may be wrong myself
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));//seems wrong at a first glance but i'm tired and may be wrong myself
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -641,16 +446,16 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -658,16 +463,16 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 1.7f, 0, next_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos + graph.x_unit / 2, 0, next_node.z_pos + graph.z_unit / 2));
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 1.7f, 0, next_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(next_node.x_pos - graph.x_unit / 2, 0, next_node.z_pos - graph.z_unit / 2));
                                         break;
                                 }
                                 break;
@@ -690,23 +495,23 @@ namespace UnityStandardAssets.Vehicles.Car
                                 switch (arriving_orientation)
                                 {
                                     case Orientation.UU:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
                                         path.Add(next_node.worldPosition);
                                         break;
                                     case Orientation.DD:
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
                                         path.Add(next_node.worldPosition);
                                         break;
                                     case Orientation.R:
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos + (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
                                         path.Add(next_node.worldPosition);
                                         break;
                                     case Orientation.L:
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos + graph.z_unit / 1.7f));
-                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 1.7f), 0, current_node.z_pos - graph.z_unit / 1.7f));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos + graph.z_unit / 2));
+                                        path.Add(new Vector3(current_node.x_pos - (graph.x_unit / 2f), 0, current_node.z_pos - graph.z_unit / 2));
                                         path.Add(next_node.worldPosition);
                                         break;
                                 }
@@ -722,6 +527,12 @@ namespace UnityStandardAssets.Vehicles.Car
                     {
                         path.Add(next_node.worldPosition);
                     }
+                    arriving_orientation = PathFinder.getOrientation(path[path.Count - 2], path[path.Count - 1]);
+                }
+                if (next_node.visited == false || i == graphSTC.VerticesCount)
+                {
+                    i++;
+                    next_node.visited = true;
                 }
 
                 if (next_node == starting_node && next_node.children_to_visit == 0)
@@ -738,6 +549,7 @@ namespace UnityStandardAssets.Vehicles.Car
         }
 
 
+        //private List<Vector3> ComputeMinTreePath()
 
         // MAIN FUNC: Prims Algorithm to find minimum spanning tree
         public Edge[] Prim_STC(GraphSTC graph, Node starting_node)
@@ -863,6 +675,8 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             Debug.Log(CarNumber + " Vertices: " + verticesCount + " Edges: " + result.Length);
             */
+
+/* ////TODO REMOVE FOR COMMENT
             return result;
         }
 
@@ -941,28 +755,28 @@ namespace UnityStandardAssets.Vehicles.Car
                         // remove from array
                         Node destination = leafEdge.Destination;
                         Node source = leafEdge.Source;
-                        if (destination.parent == source)
+                        if(destination.parent == source)
                         {
                             source.children.Remove(destination);
                             destination.parent = destination;
-                            foreach (Node child in destination.children)
+                            foreach(Node child in destination.children)
                             {
-                                Debug.Log("PRUNING" + destination + " has children: " + child);
+                                Debug.Log("PRUNING"+destination + " has children: " + child);
                             }
                         }
-                        else if (source.parent == destination)
+                        else if(source.parent == destination)
                         {
                             Debug.Log("PRUNING Source is the child of destination");
                             destination.children.Remove(source);
                             source.parent = source;
                             foreach (Node child in source.children)
                             {
-                                Debug.Log("PRUNING" + source + " has children: " + child);
+                                Debug.Log("PRUNING"+source + " has children: " + child);
                             }
                         }
                         else
                         {
-                            Debug.Log("ERROR WHILE PRUNING. Source:" + source + "\nSource parent:" + source.parent + "\nDestination:" + destination + "Dest parent:" + destination.parent);
+                            Debug.Log("ERROR WHILE PRUNING. Source:" + source + "\nSource parent:" + source.parent + "\nDestination:" + destination + "Dest parent:"+destination.parent);
                             foreach (Node child in source.children)
                             {
                                 Debug.Log("PRUNING" + source + " has children: " + child);
@@ -1063,6 +877,9 @@ namespace UnityStandardAssets.Vehicles.Car
                             PlayerCrashed = false;
                             car_status = car_state.drive;
                         }*/
+
+/* ////TODO REMOVE FOR COMMENT
+
                     }
                     else
                     {
@@ -1159,21 +976,77 @@ namespace UnityStandardAssets.Vehicles.Car
             Color[] colors = { Color.red, Color.cyan, Color.yellow, Color.white, Color.black, Color.green };
 
 
-            int col = CarNumber - 1;
-            int k = 0;
-            //foreach(List<Node> path in astar_paths)
-            //{
-
-            foreach (Node node in final_node_path)
+            if (graph != null)
             {
-                Gizmos.color = colors[col % colors.Length];
-                Gizmos.DrawCube(node.worldPosition, new Vector3(original_graph.x_unit, 0, original_graph.z_unit) * 0.9f);
-                Gizmos.color = colors[col % colors.Length];
-                Gizmos.color = colors[col + 2 % colors.Length];
 
-                if (k < final_node_path.Count - 1)
-                    Gizmos.DrawLine(final_node_path[k].worldPosition, final_node_path[k + 1].worldPosition);
-                k++;
+                Node currentNode = graph.getNodeFromPoint(transform.position);
+                //Debug.Log("CAR INITIAL NODE: [" + currentNode.i + "," + currentNode.j + "]");
+                Gizmos.color = Color.cyan; // position of car
+                                           //Debug.Log("Current car node: [" + currentNode.i + "," + currentNode.j + "]");
+                                           //Gizmos.DrawCube(currentNode.worldPosition, new Vector3(graph.x_unit * 0.8f, 0.5f, graph.z_unit * 0.8f));
+                int z = 0;
+                foreach (Node n in graph.nodes) // graph.path 
+                {
+                    if (n != null && (n.assigned_veichle == CarNumber || !n.walkable))
+                    {
+                        int index = darp.assignment_matrix[n.i, n.j];
+
+                        Gizmos.color = colors[index];
+                        if (graph.path != null && graph.path.Contains(n))
+                            Gizmos.color = Color.white;
+
+                        float scale_factor = n.is_supernode ? 1.8f : 0.9f;
+                        Gizmos.DrawCube(n.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
+
+                        //This code below draws the neighbours of the bigger nodes
+                        /*if(z <= 300 && n.is_supernode && n.assigned_veichle == CarNumber)
+                        {
+                            foreach(Node neigh in n.neighbours)
+                            {
+                                if (neigh.walkable)
+                                {
+                                    Gizmos.color = Color.black;
+                                    scale_factor = neigh.is_supernode ? 1.8f : 0.9f;
+                                    Gizmos.DrawCube(neigh.worldPosition, new Vector3(graph.x_unit * scale_factor, 0.5f, graph.z_unit * scale_factor));
+                                }
+                            }
+                            z++;
+                        }
+                        */
+/* ////TODO REMOVE FOR COMMENT
+
+
+                    }
+
+                }
+            }
+
+
+            //Show min span tree
+            if (min_tree != null)
+            {
+                Gizmos.color = colors[CarNumber];
+                //Gizmos.color = Color.red;
+                for (int i = 0; i < min_tree.Length - 1; ++i)
+                {
+                    Gizmos.color = colors[CarNumber];
+                    if (min_tree[i].Source != null && min_tree[i].Destination != null)
+                        Gizmos.DrawLine(min_tree[i].Source.worldPosition + Vector3.up, min_tree[i].Destination.worldPosition + Vector3.up);
+                    ;
+
+                }
+            }
+
+
+            //Show the path to the goal
+            if (my_path != null)
+            {
+                Gizmos.color = Color.black;
+                for (int i = path_index; i < my_path.Count - 1; ++i)
+                {
+                    Gizmos.color = colors[i / 2 % colors.Length];
+                    Gizmos.DrawLine(my_path[i], my_path[i + 1]);
+                }
             }
 
 
@@ -1218,23 +1091,25 @@ namespace UnityStandardAssets.Vehicles.Car
 
         }
 
-        private List<Vector3> path_deobstacle(List<Vector3> path, Graph graph)
+
+        private float get_angle(Vector3 initial_pos, Vector3 arriving_pos)
         {
-            for (int i = 0; i < path.Count; i++)
+            Vector3 direction = (arriving_pos - initial_pos).normalized;
+
+            float acos = Mathf.Acos(direction.x); //between 0 and 180
+            if (direction.z < 0)
             {
-                Vector3 waypoint = path[i];
-                Node node = graph.getNodeFromPoint(waypoint);
-                while (!node.walkable)
-                {
-                    Vector3 direction = (waypoint - node.worldPosition) / 1.9f;
-                    waypoint = waypoint + direction;
-                    path[i] = waypoint;
-                    node = graph.getNodeFromPoint(waypoint);
-                }
+                acos = 2 * Mathf.PI - acos;
             }
-            return path;
+
+            acos = Mathf.Rad2Deg * acos;
+
+            int direction_angle = ((int)acos / 45)*45;
+            return direction_angle;
+
         }
 
     }
-
 }
+
+*////TODO REMOVE FOR COMMENT
