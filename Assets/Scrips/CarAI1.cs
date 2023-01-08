@@ -127,7 +127,7 @@ namespace UnityStandardAssets.Vehicles.Car
             // DARP Algorithm
             // Get subgraph:
             initial_positions[0] = new Vector3(0, 0, 0);
-            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100, naive:false);
+            darp = new DARP_controller(friends.Length, initial_positions, graph, 0.0004f, 100, naive:true);
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos);
             graph = subgraph;
@@ -1539,7 +1539,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             //Show min span tree
-            if (min_tree != null)
+            if (min_tree != null && false)
             {
                 Gizmos.color = colors[CarNumber];
                 //Gizmos.color = Color.red;
@@ -1557,12 +1557,12 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             //Show the path to the goal
-            if (my_path != null)
+            if (my_path != null && false)
             {
                 Gizmos.color = Color.black;
                 for (int i = path_index; i < my_path.Count - 1; ++i)
                 {
-                    Gizmos.color = colors[i / 2 % colors.Length];
+                    //Gizmos.color = colors[i / 2 % colors.Length];
                     Gizmos.DrawLine(my_path[i], my_path[i + 1]);
                 }
             }

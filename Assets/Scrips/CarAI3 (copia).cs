@@ -7,7 +7,7 @@ using System.IO;
 namespace UnityStandardAssets.Vehicles.Car
 {
     [RequireComponent(typeof(CarController))]
-    public class CarAI3 : MonoBehaviour
+    public class CarAI3_copy : MonoBehaviour
     {
         // Variables for Car
         private CarController m_Car; // the car controller we want to use
@@ -48,7 +48,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private car_state car_status;
         private List<Vector3> enemy_positions = new List<Vector3>();
 
-        private List<Node> final_node_path = new List<Node>();
+        private List<Node> final_node_path = new List<Node>(); 
 
 
         private bool backward_crash = false;
@@ -136,70 +136,49 @@ namespace UnityStandardAssets.Vehicles.Car
             subgraph = Graph.CreateSubGraph(graph, CarNumber, terrain_manager.myInfo, x_scale, z_scale);
             map = new GraphSTC(subgraph, start_pos, enemy_positions);
             graph = subgraph;
-            darp.update_assigned_nodes(original_graph);
-            
-
-            for (int e = 0; e<enemy_positions.Count; e++)
+            foreach(Vector3 enemy in enemy_positions)
             {
-
-                if (original_graph.getNodeFromPoint(enemy_positions[e]).assigned_veichle != CarNumber) {
-                    enemy_positions.Remove(enemy_positions[e]);
-                    e--;
-                }
+                if (graph.getNodeFromPoint(enemy) == null)
+                    enemy_positions.Remove(enemy);
             }
 
+            darp.update_assigned_nodes(original_graph);
             starting_node = PathFinder.get_starting_node(transform.position, CarNumber, original_graph, graph, (360 - transform.eulerAngles.y + 90) % 360, ref path_to_starting_node);
-            original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale * 2, z_scale * 2);
+            original_graph = Graph.CreateGraph(terrain_manager.myInfo, x_scale*2, z_scale*2);
 
-            
+            int upsampling_factor = 4;
+            if (path_to_starting_node.Count > 0)
+            {
+                path_to_starting_node = PathFinder.pathUpsampling(path_to_starting_node, upsampling_factor);
+                path_to_starting_node = PathFinder.pathSmoothing(path_to_starting_node, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
+            }
             foreach (Node n in path_to_starting_node)
             {
                 final_path.Add(n.worldPosition);
                 final_node_path.Add(n);
             }
+            
 
-
+            List<Node> path_to_closest = new List<Node>();
             Vector3 current_position = starting_node.worldPosition;
+            Vector3 closest_point = new Vector3(0,0,0);
             float heading = (360 - transform.eulerAngles.y + 90) % 360;
             //compute closest turret
-            int safe_exit = 10;
             while (enemy_positions.Count > 0)
             {
-                Vector3 closest_point = new Vector3(0, 0, 0);
-                int min_distance = int.MaxValue;
-                int turret_index=0;
-                List<Node> path_to_closest = new List<Node>();
-                for (int e = 0; e<enemy_positions.Count; e++)
+                foreach (Vector3 turret in enemy_positions)
                 {
-                    Vector3 turret = enemy_positions[e];
                     List<Node> path_to_current = PathFinder.findAstarPath(original_graph, current_position, turret, heading);
-                    if (path_to_current.Count < min_distance)
+                    if (path_to_current.Count < path_to_closest.Count || path_to_closest.Count == 0)
                     {
-                        min_distance = path_to_current.Count;
                         path_to_closest = path_to_current;
-                        turret_index = e;
                         closest_point = turret;
                     }
                 }
-                if(CarNumber==2)Debug.Log("Iteration " + (10 - safe_exit) + "closest enemy: " + closest_point);
                 current_position = closest_point;
                 heading = path_to_closest[path_to_closest.Count - 1].heading;
                 final_node_path.AddRange(path_to_closest);
-                enemy_positions.RemoveAt(turret_index);
-                safe_exit--;
-            }
-
-            int upsampling_factor = 4;
-            if (final_node_path.Count > 0)
-            {
-                final_node_path = PathFinder.pathUpsampling(final_node_path, upsampling_factor);
-                final_node_path = PathFinder.pathSmoothing(final_node_path, 0.6f, 0.2f, 1E-09f); //Now the path is ready to be trasversed
-            }
-
-            my_path = new List<Vector3>();
-            foreach(Node n in final_node_path)
-            {
-                my_path.Add(n.worldPosition);
+                enemy_positions.Remove(closest_point);
             }
 
         }
@@ -941,28 +920,28 @@ namespace UnityStandardAssets.Vehicles.Car
                         // remove from array
                         Node destination = leafEdge.Destination;
                         Node source = leafEdge.Source;
-                        if (destination.parent == source)
+                        if(destination.parent == source)
                         {
                             source.children.Remove(destination);
                             destination.parent = destination;
-                            foreach (Node child in destination.children)
+                            foreach(Node child in destination.children)
                             {
-                                Debug.Log("PRUNING" + destination + " has children: " + child);
+                                Debug.Log("PRUNING"+destination + " has children: " + child);
                             }
                         }
-                        else if (source.parent == destination)
+                        else if(source.parent == destination)
                         {
                             Debug.Log("PRUNING Source is the child of destination");
                             destination.children.Remove(source);
                             source.parent = source;
                             foreach (Node child in source.children)
                             {
-                                Debug.Log("PRUNING" + source + " has children: " + child);
+                                Debug.Log("PRUNING"+source + " has children: " + child);
                             }
                         }
                         else
                         {
-                            Debug.Log("ERROR WHILE PRUNING. Source:" + source + "\nSource parent:" + source.parent + "\nDestination:" + destination + "Dest parent:" + destination.parent);
+                            Debug.Log("ERROR WHILE PRUNING. Source:" + source + "\nSource parent:" + source.parent + "\nDestination:" + destination + "Dest parent:"+destination.parent);
                             foreach (Node child in source.children)
                             {
                                 Debug.Log("PRUNING" + source + " has children: " + child);
@@ -1164,13 +1143,6 @@ namespace UnityStandardAssets.Vehicles.Car
             //foreach(List<Node> path in astar_paths)
             //{
 
-            for(int i = 0; i<final_node_path.Count-1; i++)
-            {
-                Gizmos.color = Color.white;
-                Gizmos.DrawLine(final_node_path[i].worldPosition, final_node_path[i + 1].worldPosition);
-            }
-
-            /*
             foreach (Node node in final_node_path)
             {
                 Gizmos.color = colors[col % colors.Length];
@@ -1182,7 +1154,6 @@ namespace UnityStandardAssets.Vehicles.Car
                     Gizmos.DrawLine(final_node_path[k].worldPosition, final_node_path[k + 1].worldPosition);
                 k++;
             }
-            */
 
 
 
